@@ -1,0 +1,25 @@
+============
+Project Info
+============
+Task1: Has a fixed schema. Just use Pyspark DF with function and methods.
+Task2: Has a fixed schema. Each group will get its own tasks with probably the columns.
+Task3: 
+
+==============
+BASH Commands:
+==============
+module load python/gnu/3.6.5
+
+module load spark/2.4.0
+
+============
+RUN Commands
+============
+
+hfs -rmr /user/aj2885/Project/task1
+
+spark-submit --conf spark.pyspark.python=/share/apps/python/3.6.5/bin/python project/task1.py
+
+hfs -getmerge Project/task1/268n-a7em.json project/t1.json
+
+cat task2_test.txt
