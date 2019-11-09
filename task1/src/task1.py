@@ -2,7 +2,7 @@
 # coding: utf-8
 
 # --- NOTES -------------------------------------------------------------------
-# 1. In line 134 of this code, dataList[0:1] is set to iterate over only the
+# 1. In line 147 of this code, dataList[0:1] is set to iterate over only the
 #    first dataset for testing. We can change the range to test over more datasets.
 # 2. Please use .copy() method to make a copy of intSchema, realSchema, dateTimeSchema
 #    or textSchema for JSON.
@@ -10,6 +10,7 @@
 # -----------------------------------------------------------------------------
 
 import sys
+import os
 import json
 import pyspark
 from pyspark import SparkContext
@@ -52,9 +53,12 @@ if __name__ == "__main__":
         .getOrCreate()
     sqlContext = SQLContext(spark)
 
+    env_var = os.environ
+    this_user = env_var['USER']
+
     # Input & output directories
     inputDirectory = "/user/hm74/NYCOpenData/"#sys.argv[1]
-    outputDirectory = "/user/aj2885/Project/task1/"#sys.argv[2]
+    outputDirectory = "/user/" + this_user + "/Project/task1/"#sys.argv[2]
 
     # Output JSON Schema - PARENT
     jsonSchema = {
