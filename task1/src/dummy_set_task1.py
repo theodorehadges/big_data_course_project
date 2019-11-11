@@ -172,7 +172,7 @@ if __name__ == "__main__":
       col_df = df.groupBy(col_name). \
           count(). \
           orderBy('count', ascending=False)
-      col_df.rdd.map(lambda x: print(x))
+      #col_df.rdd.map(lambda x: print(x))
 
       # number of distinct values in column
       #print(col_df.select(col_name).distinct().count())
