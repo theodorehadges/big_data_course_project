@@ -13,8 +13,7 @@ import sys
 import os
 import json
 import pyspark
-import string
-import unicodedata
+import re
 from pyspark import SparkContext
 from pyspark.sql import SQLContext
 from pyspark.sql import SparkSession
@@ -37,13 +36,6 @@ def get_key_columns_candidates(df):
     return keyCols
 
 
-def get_count(df):
-  countCols = {}
-  for col in df.columns:
-    col_df = df.groupBy(col).count().orderBy('count', ascending=False)
-    countCols[col] = 
-    
-
 
 # --- Function Definitions End ------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -61,13 +53,16 @@ if __name__ == "__main__":
         .appName("project_task1") \
         .config("spark.some.config.option", "some-value") \
         .getOrCreate()
-    sqlContext = SQLContext(spark)
+    #sqlContext = SQLContext(spark)
+    sqlContext = SQLContext(sparkContext=spark.sparkContext, sparkSession=spark)
+
 
     env_var = os.environ
-    this_user = env_var['USER']
+    this_user = env_var['USER'] # this_user instead of our netID
 
     # Input & output directories
-    inputDirectory = "/user/hm74/NYCOpenData/"#sys.argv[1]
+    #inputDirectory = "/user/hm74/NYCOpenData/"#sys.argv[1]
+
     outputDirectory = "/user/" + this_user + "/Project/task1/"#sys.argv[2]
 
     # Output JSON Schema - PARENT
@@ -152,36 +147,79 @@ if __name__ == "__main__":
     }
 
     # Importing dataframe from HDFS with datasetnames
-    datasets = sqlContext.read.format("csv").option("header", "false").option("delimiter", "\t").load(inputDirectory + "datasets.tsv")
+    #datasets = sqlContext.read.format("csv").option("header", "false").option("delimiter", "\t").load(inputDirectory + "datasets.tsv")
     # List of dataset file names
-    dataList = [str(row._c0) for row in datasets.select('_c0').collect()]
+    #dataList = [str(row._c0) for row in datasets.select('_c0').collect()]
     # Iteration over dataframes begins bu using dataframe file names
-    for filename in dataList[0:4]:
-        df = sqlContext.read.format("csv").option("header",
-        "true").option("inferSchema", "false").option("delimiter", "\t").load(inputDirectory + filename + ".tsv.gz")
+    #for filename in dataList[0:4]:
+    df = sqlContext.read.format("csv").option("header",
+        "true").option("inferSchema", "false").option("delimiter",
+        "\t").load("dummy_set.tsv")
+
+    col_names = df.columns
+    print(col_names)
+
+    df.createOrReplaceTempView("df")
+    sqlContext.cacheTable("df")
+    df_result = spark.sql("select * \
+              from df \
+              ").show()
+
+
+    
+
+    for col_name in col_names: # can change to map later
+      col_df = df.groupBy(col_name). \
+          count(). \
+          orderBy('count', ascending=False)
+      col_df.rdd.map(lambda x: print(x))
+
+      # number of distinct values in column
+      #print(col_df.select(col_name).distinct().count())
         
-          
-          
+      
+      # try to cast to int. all ints will show, all others will be null
+      #numerics = spark.sql("select int("' + col + '") \
+    #                    from df").show()
 
-        #df.describe().show()
-        
-        # Copy of the jsonSchema for current iteration 
-        outJSON = jsonSchema.copy()
-        
-        # ---------------------------------------------------------------------
-        # --- ENTER FUNCTION CALLS FROM HERE ----------------------------------
+   
+    #result = df.rdd.map(lambda x: x.Recurring)
+    #print(result.collect())
+    #df.describe().show()
+    #df.printSchema()
+    #for row in df['Recurring']:
+    #  print(row, dtype)
 
-        # 01) Setting the "dataset_name" attribute
-        outJSON["dataset_name"] = filename
-        # 02) Finding "key_columns_candidates" attribute
-        outJSON["key_columns_candidates"] = get_key_columns_candidates(df)
+    #spark.sql("select * from df").show()
+    
+    #for name, dtype in df.dtypes:
+    #  print(name, dtype)
+      
+      #if dtype is 'integer':
+      #  colJSON = intSchema.copy()
+      #  colJSON["column_name"] = name
+        #colJSON["
+
+
+      
+      # Copy of the jsonSchema for current iteration 
+      #outJSON = jsonSchema.copy()
+      
+      # ---------------------------------------------------------------------
+      # --- ENTER FUNCTION CALLS FROM HERE ----------------------------------
+      
+      #filename = "output_dummy"
+      # 01) Setting the "dataset_name" attribute
+      #outJSON["dataset_name"] = filename
+      # 02) Finding "key_columns_candidates" attribute
+      #outJSON["key_columns_candidates"] = get_key_columns_candidates(df)
 
 
 
 
-        # --- FUNCTION CALLS END HERE -----------------------------------------
-        # ---------------------------------------------------------------------
-        
-        # Exporting the JSON for current dataset
-        outJSON = sc.parallelize([outJSON])
-        outJSON.saveAsTextFile(outputDirectory + filename + '.json')
+      # --- FUNCTION CALLS END HERE -----------------------------------------
+      # ---------------------------------------------------------------------
+      
+      # Exporting the JSON for current dataset
+      #outJSON = sc.parallelize([outJSON])
+      #outJSON.saveAsTextFile(outputDirectory + filename + '.json')
