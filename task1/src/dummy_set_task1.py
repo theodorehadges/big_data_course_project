@@ -14,6 +14,7 @@ import os
 import json
 import pyspark
 import re
+import pprint
 from pyspark import SparkContext
 from pyspark.sql import SQLContext
 from pyspark.sql import SparkSession
@@ -34,6 +35,42 @@ def get_key_columns_candidates(df):
             keyCols.append(col)
             #keyCols.append((df.select(col).count(), df.select(col).distinct().count()))
     return keyCols
+
+
+def fill_numeric_json(col, df, dtype, empty_json):
+      
+    # anything non-numeric will be set to null since it can't be casted
+    
+    # Real numbers: any val which can be casted to float
+    reals = spark.sql("select float(" + col + ")) from df")
+    reals.createOrReplaceTempView("reals")
+
+    # Ints: any real number divisible by 1
+    ints = spark.sql("select " + col + ") \
+        from reals where " + col + " % 1 == 0").show()
+
+    num_non_empty = spark.sql("select sum(case when " + col + " \
+        is not null then 1 end) from df")
+    intJSON['number_non_empty_cells'] = num_non_empty
+
+    num_distinct_vals = spark.sql("select count(distinct " + col + " from df")
+    intJSON['number_distinct_values'] = num_distinct_vals
+
+    result = spark.sql("select " + col + ", count(" + col + ") \
+        as frequency from df group by recurring \
+        order by frequency desc limit 5")
+    frequent_vals = result.select(col).rdd.flatMap(lambda x: x).collect()
+    intJSON['frequent_values'] = frequenct_vals
+    stats_list = df.describe(col).rdd.flatMap(lambda x: x).collect()
+
+    # might need to manually calculate these rather than use describe()
+    #intJSON['data_types']['count'] = int(stats_list[1])
+    #intJSON['data_types']['max_value'] = stats_list[9]
+    #intJSON['data_types']['min_value'] = 
+    #intJSON['data_types']['mean'] = 
+    #intJSON['data_types']['stddev'] = 
+    return(intJSON)
+
 
 
 
@@ -153,11 +190,11 @@ if __name__ == "__main__":
     # Iteration over dataframes begins bu using dataframe file names
     #for filename in dataList[0:4]:
     df = sqlContext.read.format("csv").option("header",
-        "true").option("inferSchema", "false").option("delimiter",
+        "true").option("inferSchema", "true").option("delimiter",
         "\t").load("dummy_set.tsv")
 
-    col_names = df.columns
-    print(col_names)
+    #col_names = df.columns
+    #print(col_names)
 
     df.createOrReplaceTempView("df")
     sqlContext.cacheTable("df")
@@ -165,13 +202,30 @@ if __name__ == "__main__":
               from df \
               ").show()
 
+    # Copy of the jsonSchema for current iteration 
+    outJSON = jsonSchema.copy()
+
+    for col, dtype in df.dtypes: # change to map function later
+      
+      if dtype is 'integer':
+        intJSON = intSchema.copy()
+        intJSON["column_name"] = col
+        intJSON = fill_numeric_json(name, df, dtype, intJSON)
+
+        outJSON["columns"].append(intJSON)
+
+
+
+     
+     
+
 
     
 
-    for col_name in col_names: # can change to map later
-      col_df = df.groupBy(col_name). \
-          count(). \
-          orderBy('count', ascending=False)
+    #for col_name in col_names: # can change to map later
+     # col_df = df.groupBy(col_name). \
+     #     count(). \
+     #     orderBy('count', ascending=False)
       #col_df.rdd.map(lambda x: print(x))
 
       # number of distinct values in column
@@ -192,34 +246,26 @@ if __name__ == "__main__":
 
     #spark.sql("select * from df").show()
     
-    #for name, dtype in df.dtypes:
-    #  print(name, dtype)
-      
-      #if dtype is 'integer':
-      #  colJSON = intSchema.copy()
-      #  colJSON["column_name"] = name
-        #colJSON["
-
+    
 
       
-      # Copy of the jsonSchema for current iteration 
-      #outJSON = jsonSchema.copy()
-      
+            
       # ---------------------------------------------------------------------
       # --- ENTER FUNCTION CALLS FROM HERE ----------------------------------
       
-      #filename = "output_dummy"
+      filename = "output_dummy"
       # 01) Setting the "dataset_name" attribute
-      #outJSON["dataset_name"] = filename
+      outJSON["dataset_name"] = filename
       # 02) Finding "key_columns_candidates" attribute
-      #outJSON["key_columns_candidates"] = get_key_columns_candidates(df)
-
+      outJSON["key_columns_candidates"] = get_key_columns_candidates(df)
+      
 
 
 
       # --- FUNCTION CALLS END HERE -----------------------------------------
       # ---------------------------------------------------------------------
+
       
       # Exporting the JSON for current dataset
-      #outJSON = sc.parallelize([outJSON])
-      #outJSON.saveAsTextFile(outputDirectory + filename + '.json')
+      outJSON = sc.parallelize([outJSON])
+      outJSON.saveAsTextFile(outputDirectory + filename + '.json')
