@@ -1,1 +1,1 @@
-{'dataset_name': '268n-a7em', 'columns': [], 'key_column_candidates': [], 'key_columns_candidates': []}
+{'dataset_name': '268n-a7em', 'columns': ['string', 'string', 'int', 'string', 'int', 'int', 'double', 'int', 'double', 'double', 'int', 'double', 'double', 'int', 'double', 'double', 'int', 'double', 'double', 'int', 'double', 'int', 'double', 'int', 'double', 'int', 'double'], 'key_column_candidates': [], 'key_columns_candidates': []}

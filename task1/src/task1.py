@@ -37,11 +37,50 @@ def get_key_columns_candidates(df):
     return keyCols
 
 
-def get_count(df):
-  countCols = {}
-  for col in df.columns:
-    col_df = df.groupBy(col).count().orderBy('count', ascending=False)
-    countCols[col] = 
+
+def get_col_meta(df):
+    metaCols = []
+    for col, dtype in df.dtypes: # change to map function later
+        if dtype is 'int':
+          intJSON = intSchema.copy()
+          intJSON["column_name"] = col
+
+          # anything non-numeric will be set to null since it can't be casted
+          
+          # Real numbers: any val which can be casted to float
+          reals = spark.sql("select float(`" + col + "`) from df")
+          reals.createOrReplaceTempView("reals")
+
+          # Ints: any real number divisible by 1
+          ints = spark.sql("select `" + col + "` \
+              from reals where `" + col + "` % 1 == 0")
+
+          num_non_empty = spark.sql("select sum(case when `" + col + "` \
+              is not null then 1 end) from df")
+          intJSON['number_non_empty_cells'] = num_non_empty
+
+          num_distinct_vals = spark.sql("select count(distinct `" + col + "`) from df")
+          intJSON['number_distinct_values'] = num_distinct_vals
+
+          result = spark.sql("select `" + col + "`, count(`" + col + "`) \
+              as frequency from df group by `" + col + "` \
+              order by frequency desc limit 5")
+          frequent_vals = result.select(col).rdd.flatMap(lambda x: x).collect()
+          intJSON['frequent_values'] = frequent_vals
+          stats_list = df.describe(col).rdd.flatMap(lambda x: x).collect()
+
+          # might need to manually calculate these rather than use describe()
+          #intJSON['data_types']['count'] = int(stats_list[1])
+          #intJSON['data_types']['max_value'] = stats_list[9]
+          #intJSON['data_types']['min_value'] = 
+          #intJSON['data_types']['mean'] = 
+          #intJSON['data_types']['stddev'] = 
+
+          #metaCols.append(intJSON) # but doesn't work rn since parallelized
+        metaCols.append(dtype) # just putting dtypes for now to fill the slot
+    return(metaCols)
+
+
     
 
 
@@ -61,7 +100,9 @@ if __name__ == "__main__":
         .appName("project_task1") \
         .config("spark.some.config.option", "some-value") \
         .getOrCreate()
-    sqlContext = SQLContext(spark)
+    #sqlContext = SQLContext(spark)
+    sqlContext = SQLContext(sparkContext=spark.sparkContext, sparkSession=spark)
+
 
     env_var = os.environ
     this_user = env_var['USER']
@@ -152,22 +193,27 @@ if __name__ == "__main__":
     }
 
     # Importing dataframe from HDFS with datasetnames
-    datasets = sqlContext.read.format("csv").option("header", "false").option("delimiter", "\t").load(inputDirectory + "datasets.tsv")
+    #datasets = sqlContext.read.format("csv").option("header", "false").option("delimiter", "\t").load(inputDirectory + "datasets.tsv")
+    datasets = sqlContext.read.format("csv").option("header", 
+        "false").option("delimiter", "\t").load(inputDirectory + "datasets.tsv")
+
     # List of dataset file names
     dataList = [str(row._c0) for row in datasets.select('_c0').collect()]
     # Iteration over dataframes begins bu using dataframe file names
     for filename in dataList[0:4]:
         df = sqlContext.read.format("csv").option("header",
-        "true").option("inferSchema", "false").option("delimiter", "\t").load(inputDirectory + filename + ".tsv.gz")
-        
-          
-          
+        "true").option("inferSchema", "true").option("delimiter", 
+            "\t").load(inputDirectory + filename + ".tsv.gz")
 
-        #df.describe().show()
+        df.createOrReplaceTempView("df")
+        #sqlContext.cacheTable("df")
+        #df_result = spark.sql("select * from df").show()
         
         # Copy of the jsonSchema for current iteration 
         outJSON = jsonSchema.copy()
-        
+
+
+                
         # ---------------------------------------------------------------------
         # --- ENTER FUNCTION CALLS FROM HERE ----------------------------------
 
@@ -175,6 +221,7 @@ if __name__ == "__main__":
         outJSON["dataset_name"] = filename
         # 02) Finding "key_columns_candidates" attribute
         outJSON["key_columns_candidates"] = get_key_columns_candidates(df)
+        outJSON["columns"] = get_col_meta(df)
 
 
 
