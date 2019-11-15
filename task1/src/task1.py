@@ -90,7 +90,6 @@ def max_value_for_real_int(col):
     eCol = df.select(col)
     currCol = eCol.createOrReplaceTempView("currCol")
     max_value_for_real_int = spark.sql("SELECT MAX(*) FROM currCol WHERE `" + col + "` is NOT NULL")
-    max_value_for_real_int.show()
     res = max_value_for_real_int.rdd.flatMap(lambda x: x).collect()
     return res
 
@@ -98,7 +97,6 @@ def min_value_for_real_int(col):
     eCol = df.select(col)
     currCol = eCol.createOrReplaceTempView("currCol")
     min_value_for_real_int = spark.sql("SELECT MIN(*) FROM currCol WHERE `" + col + "` is NOT NULL")
-    min_value_for_real_int.show()
     res = min_value_for_real_int.rdd.flatMap(lambda x: x).collect()
     return res
 
@@ -106,7 +104,6 @@ def mean_for_real_int(col):
     eCol = df.select(col)
     currCol = eCol.createOrReplaceTempView("currCol")
     mean_for_real_int = spark.sql("SELECT AVG(*) FROM currCol WHERE `" + col + "` is NOT NULL")
-    mean_for_real_int.show()
     res = mean_for_real_int.rdd.flatMap(lambda x: x).collect()
     return res
 
@@ -114,7 +111,6 @@ def stddev_for_real_int(col):
     eCol = df.select(col)
     currCol = eCol.createOrReplaceTempView("currCol")
     stddev_for_real_int = spark.sql("SELECT STD(*) FROM currCol WHERE `" + col + "` is NOT NULL")
-    stddev_for_real_int.show()
     res = stddev_for_real_int.rdd.flatMap(lambda x: x).collect()
     return res
 
@@ -292,7 +288,7 @@ if __name__ == "__main__":
                 outJSON["data_types"]["shortest_values"] = ', '.join(map(str, shortest_values(col)))
                 outJSON["data_types"]["longest_values"] = ', '.join(map(str,  longest_values(col)))
                 outJSON["data_types"]["average_length"] = ', '.join(map(str,  average_length(col)))
-            if type == 'long' or type == "string":
+            if type == 'double':
                 outJSON = realSchema.copy()
                 outJSON["column_name"] = col
                 outJSON["number_non_empty_cells"] = ', '.join(map(str, number_non_empty_cells(col)))
@@ -303,7 +299,7 @@ if __name__ == "__main__":
                 outJSON["data_types"]["min_value"] = ', '.join(map(str,  min_value_for_real_int(col)))
                 outJSON["data_types"]["mean"] = ', '.join(map(str,  mean_for_real_int(col)))
                 outJSON["data_types"]["stddev"] = ', '.join(map(str,  stddev_for_real_int(col)))
-            if type =='integer':
+            if type == 'long' or type == 'string':
                 outJSON = intSchema.copy()
                 outJSON["column_name"] = col
                 outJSON["number_non_empty_cells"] = ', '.join(map(str, number_non_empty_cells(col)))
