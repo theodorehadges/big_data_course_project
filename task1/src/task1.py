@@ -13,6 +13,7 @@ import sys
 import os
 import json
 import pyspark
+import re
 from pyspark.sql.functions import unix_timestamp
 from pyspark import SparkContext
 from pyspark.sql import SQLContext
@@ -266,51 +267,89 @@ if __name__ == "__main__":
         outJSON["dataset_name"] = filename
         # 03) Finding "colomns" attribute for each column
 
-        for col in df.columns: 
-            type = df.schema[col].dataType.typeName()
-            print(type)
-            if type == 'datetime':
-                outJSON1 = dateTimeSchema.copy()
-                outJSON1["column_name"] = col
-                outJSON1["number_non_empty_cells"] = ', '.join(map(str, number_non_empty_cells(col)))
-                outJSON1["number_distinct_values"] = ', '.join(map(str, number_distinct_values(col)))
-                outJSON1["frequent_values"] = ', '.join(map(str, frequent_values(col)))
-                outJSON1["data_types"]["count"] = ', '.join(map(str, count(col)))
-                outJSON1["data_types"]["max_value"] = ', '.join(map(str,  max_value(col)))
-                outJSON1["data_types"]["min_value"] = ', '.join(map(str,  min_value(col)))
-            if type == 'string': 
-                outJSON = textSchema.copy()
-                outJSON["column_name"] = col
-                outJSON["number_non_empty_cells"] = ', '.join(map(str, number_non_empty_cells(col)))
-                outJSON["number_distinct_values"] = ', '.join(map(str, number_distinct_values(col)))
-                outJSON["frequent_values"] = ', '.join(map(str, frequent_values(col)))
-                outJSON["data_types"]["count"] = ', '.join(map(str, count(col)))
-                outJSON["data_types"]["shortest_values"] = ', '.join(map(str, shortest_values(col)))
-                outJSON["data_types"]["longest_values"] = ', '.join(map(str,  longest_values(col)))
-                outJSON["data_types"]["average_length"] = ', '.join(map(str,  average_length(col)))
-            if type == 'double':
-                outJSON = realSchema.copy()
-                outJSON["column_name"] = col
-                outJSON["number_non_empty_cells"] = ', '.join(map(str, number_non_empty_cells(col)))
-                outJSON["number_distinct_values"] = ', '.join(map(str, number_distinct_values(col)))
-                outJSON["frequent_values"] = ', '.join(map(str, frequent_values(col)))
-                outJSON["data_types"]["count"] = ', '.join(map(str, count(col)))
-                outJSON["data_types"]["max_value"] = ', '.join(map(str, max_value_for_real_int(col)))
-                outJSON["data_types"]["min_value"] = ', '.join(map(str,  min_value_for_real_int(col)))
-                outJSON["data_types"]["mean"] = ', '.join(map(str,  mean_for_real_int(col)))
-                outJSON["data_types"]["stddev"] = ', '.join(map(str,  stddev_for_real_int(col)))
-            if type == 'long' or type == 'string':
-                outJSON = intSchema.copy()
-                outJSON["column_name"] = col
-                outJSON["number_non_empty_cells"] = ', '.join(map(str, number_non_empty_cells(col)))
-                outJSON["number_distinct_values"] = ', '.join(map(str, number_distinct_values(col)))
-                outJSON["frequent_values"] = ', '.join(map(str, frequent_values(col)))
-                outJSON["data_types"]["count"] = ', '.join(map(str, count(col)))
-                outJSON["data_types"]["max_value"] = ', '.join(map(str, max_value_for_real_int(col)))
-                outJSON["data_types"]["min_value"] = ', '.join(map(str,  min_value_for_real_int(col)))
-                outJSON["data_types"]["mean"] = ', '.join(map(str,  mean_for_real_int(col)))
-                outJSON["data_types"]["stddev"] = ', '.join(map(str,  stddev_for_real_int(col)))     
+        for col in df.columns:
+#       TODO: Define of different types regex list:
+            date_time_list = ['\d{4}-\d{2}-\d{2}', 
+                              '\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}',
+                              '\d{2}\/\d{2}\/\d{4}',
+                              '\d{4}\/\d{2}\/\d{2}',
+                              '\d{2}:\d{2}:\d{2}.*'
+                             ]
+            integer_list = ['^\d+$',
+                            ]
+            real_list = []
+        #     Everthing else would be string types 
+            string_list = []
+            
+        #     create empty dict for each types for output 
+            matchDate = []
+            matchString = []
+            matchInt = []
+            matchReal = []
+            res = df.select(col).rdd.collect()
+        #Go thru every cell in for each col
+            for row in res:
+                strrow = str(row[0])
+                for r in date_time_list:
+                    match = re.findall(r, strrow)
+                    if match: 
+                        matchDate.append(match)
+                for r in integer_list:
+                    match = re.findall(r, strrow)
+                    if match: 
+                        matchInt.append(match)
+                for r in real_list:
+                    match = re.findall(r, strrow)
+                    if match: 
+                        matchReal.append(match)
+        # TODO: need a way to figure out for string types 
 
+            if matchDate:
+        #         date_time_df = spark.createDataFrame(matchDate)
+        #         need call ufd functions for each datetypes 
+        #         outJSON = dateTimeSchema.copy()
+        #         outJSON["column_name"] = col
+        #         outJSON["number_non_empty_cells"] = ', '.join(map(str, number_non_empty_cells( date_time_df)))
+        #         outJSON["number_distinct_values"] = ', '.join(map(str, number_distinct_values( date_time_df)))
+        #         outJSON["frequent_values"] = ', '.join(map(str, frequent_values( date_time_df)))
+        #         outJSON["data_types"]["count"] = ', '.join(map(str, count( date_time_df)))
+        #         outJSON["data_types"]["max_value"] = ', '.join(map(str,  max_value( date_time_df)))
+        #         outJSON["data_types"]["min_value"] = ', '.join(map(str,  min_value( date_time_df)))
+            if matchInt:
+        #         TODO: createDataFrame and call ufds for int   
+        #         outJSON = intSchema.copy()
+        #         outJSON["column_name"] = col
+        #         outJSON["number_non_empty_cells"] = ', '.join(map(str, number_non_empty_cells(col)))
+        #         outJSON["number_distinct_values"] = ', '.join(map(str, number_distinct_values(col)))
+        #         outJSON["frequent_values"] = ', '.join(map(str, frequent_values(col)))
+        #         outJSON["data_types"]["count"] = ', '.join(map(str, count(col)))
+        #         outJSON["data_types"]["max_value"] = ', '.join(map(str, max_value_for_real_int(col)))
+        #         outJSON["data_types"]["min_value"] = ', '.join(map(str,  min_value_for_real_int(col)))
+        #         outJSON["data_types"]["mean"] = ', '.join(map(str,  mean_for_real_int(col)))
+        #         outJSON["data_types"]["stddev"] = ', '.join(map(str,  stddev_for_real_int(col)))
+             if matchReal:
+        #         createDataFrame and call ufds for real
+        #         outJSON["column_name"] = col
+        #         outJSON["number_non_empty_cells"] = ', '.join(map(str, number_non_empty_cells(col)))
+        #         outJSON["number_distinct_values"] = ', '.join(map(str, number_distinct_values(col)))
+        #         outJSON["frequent_values"] = ', '.join(map(str, frequent_values(col)))
+        #         outJSON["data_types"]["count"] = ', '.join(map(str, count(col)))
+        #         outJSON["data_types"]["max_value"] = ', '.join(map(str, max_value_for_real_int(col)))
+        #         outJSON["data_types"]["min_value"] = ', '.join(map(str,  min_value_for_real_int(col)))
+        #         outJSON["data_types"]["mean"] = ', '.join(map(str,  mean_for_real_int(col)))
+        #         outJSON["data_types"]["stddev"] = ', '.join(map(str,  stddev_for_real_int(col)))
+             else: 
+        #         createDataFrame and call ufds for string
+        #         outJSON = textSchema.copy()
+        #         outJSON["column_name"] = col
+        #         outJSON["number_non_empty_cells"] = (', '.join(map(str, number_non_empty_cells(col))))
+        #         outJSON["number_distinct_values"] = ', '.join(map(str, number_distinct_values(col)))
+        #         outJSON["frequent_values"] = ', '.join(map(str, frequent_values(col)))
+        #         outJSON["data_types"]["count"] = ', '.join(map(str, count(col)))
+        #         outJSON["data_types"]["shortest_values"] = ', '.join(map(str, shortest_values(col)))
+        #         outJSON["data_types"]["longest_values"] = ', '.join(map(str,  longest_values(col)))
+        #         outJSON["data_types"]["average_length"] = ', '.join(map(str,  average_length(col)))
+     
         # 03) Finding "key_columns_candidates" attribute
         outJSON["key_columns_candidates"] = get_key_columns_candidates(df)
 
