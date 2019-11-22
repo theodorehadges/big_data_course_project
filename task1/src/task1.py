@@ -20,12 +20,21 @@ from pyspark.sql import SQLContext
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import udf
 from pyspark.sql.types import StructType, StructField, IntegerType, StringType, FloatType, DateType, TimestampType
+from datetime import datetime
+from pyspark.sql import Row
+from pyspark.sql.functions import udf
 # -----------------------------------------------------------------------------
 # --- Function Definitions Begin ----------------------------------------------
 
 # Please check something called UDF (from pyspark.sql.functions import udf) for
 # making user defined functions so that our functions are also parallelizable
 # in Big Data sense.
+def parse_Date(x):
+    for fmt in ('%Y-%m-%d', '%m-%d-%Y', '%d/%m/%Y','%Y-%m-%d %H:%M:%S','%m/%d/%Y','%m/%d/%Y','%m/%d/%y','%d/%m/%Y'):
+        try:
+            return str(datetime.strptime(x,fmt).replace(tzinfo=pytz.UTC).strftime("%Y/%m/%d %H:%M:%S"))
+        except ValueError:
+            pass
 
 def get_key_columns_candidates(df):
     keyCols = []
@@ -36,98 +45,92 @@ def get_key_columns_candidates(df):
     return keyCols
 
 #functions for all data types
-def number_non_empty_cells(col):
+def number_non_empty_cells(df):
     eCol = df.select(col)
     currCol = eCol.createOrReplaceTempView("currCol")
-    number_non_empty_cells = spark.sql("SELECT COUNT(`" + col + "`) AS number_non_empty_cells FROM currCol WHERE `" + col + "` = '' ")
+    number_non_empty_cells = spark.sql("SELECT COUNT(`" + col + "`) AS number_non_empty_cells FROM currCol WHERE `" + col + "` != ''")
     res = number_non_empty_cells.rdd.flatMap(lambda x: x).collect()
-    return res 
-
-def number_distinct_values(col):
-    eCol = df.select(col)
-    currCol = eCol.createOrReplaceTempView("currCol")
-    number_distinct_values = spark.sql("SELECT COUNT(DISTINCT *) AS number_distinct_values FROM currCol")
-    res = number_distinct_values.rdd.flatMap(lambda x: x).collect()
     return res
 
-def frequent_values(col):
+def number_empty_cells(df):
     eCol = df.select(col)
     currCol = eCol.createOrReplaceTempView("currCol")
-    frequent_values = spark.sql("SELECT `" + col + "` AS frequent_values FROM (SELECT `" + col + "`, COUNT (`" + col + "`) as f FROM currCol GROUP BY `" + col + "` ORDER BY f DESC LIMIT 5)")
+    number_empty_cells = spark.sql("SELECT COUNT(`" + col + "`) AS number_empty_cells FROM currCol WHERE `" + col + "` = '' ")
+    res = number_empty_cells.rdd.flatMap(lambda x: x).collect()
+    return res
+
+def number_distinct_values(df):
+    number_distinct_values = spark.sql("SELECT COUNT(DISTINCT `" + col + "`) AS number_distinct_values FROM df")
+    res = number_distinct_values.rdd.flatMap(lambda x: x).collect()
+    return res  
+
+def count(df_col): 
+    df_col = df_col.createOrReplaceTempView("df_col")
+    count = spark.sql("SELECT COUNT(*) FROM df_col WHERE `" + col + "` != '' AND `" + col + "` is NOT NULL")
+    res = count.rdd.flatMap(lambda x: x).collect()
+    return res
+
+def frequent_values(df_col):
+    df_col = df_col.createOrReplaceTempView("df_col")
+    frequent_values = spark.sql("SELECT `" + col + "` AS frequent_values FROM (SELECT `" + col + "`, COUNT (`" + col + "`) as f FROM df_col GROUP BY `" + col + "` ORDER BY f DESC LIMIT 5)")
     res = frequent_values.rdd.flatMap(lambda x: x).collect()
     return res 
 
-def count(col): 
-    eCol = df.select(col)
-    currCol = eCol.createOrReplaceTempView("currCol")
-    text_count = spark.sql("SELECT COUNT(*) as text_count FROM currCol WHERE `" + col + "` != '' AND `" + col + "` is NOT NULL")
-    res = text_count.rdd.flatMap(lambda x: x).collect()
-    return res
-
 #functions for string type
-def shortest_values(col): 
-    eCol = df.select(col)
-    currCol = eCol.createOrReplaceTempView("currCol")
-    shortest_values = spark.sql("SELECT `" + col + "` FROM (SELECT `" + col + "`, char_length(`" + col + "`) AS Col_Length_MIN FROM currCol WHERE `" + col + "` != '' AND `" + col + "` is NOT NULL ORDER BY Col_Length_MIN ASC LIMIT 5)" )
+def shortest_values(df_col): 
+    df_col = df_col.createOrReplaceTempView("df_col")
+    shortest_values = spark.sql("SELECT `" + col + "` FROM (SELECT `" + col + "`, char_length(`" + col + "`) AS Col_Length_MIN FROM df_col WHERE `" + col + "` != '' AND `" + col + "` is NOT NULL ORDER BY Col_Length_MIN ASC LIMIT 5)" )
     res = shortest_values.rdd.flatMap(lambda x: x).collect()
     return res
 
-def longest_values(col): 
-    eCol = df.select(col)
-    currCol = eCol.createOrReplaceTempView("currCol")
-    longest_values = spark.sql("SELECT `" + col + "` FROM (SELECT `" + col + "`, char_length(`" + col + "`) AS Col_Length_MIN FROM currCol WHERE `" + col + "` != '' AND `" + col + "` is NOT NULL ORDER BY Col_Length_MIN DESC LIMIT 5)" )
+def longest_values(df_col): 
+    df_col = df_col.createOrReplaceTempView("df_col")
+    longest_values = spark.sql("SELECT `" + col + "` FROM (SELECT `" + col + "`, char_length(`" + col + "`) AS Col_Length_MIN FROM df_col WHERE `" + col + "` != '' AND `" + col + "` is NOT NULL ORDER BY Col_Length_MIN DESC LIMIT 5)" )
     res = longest_values.rdd.flatMap(lambda x: x).collect()
     return res
 
-def average_length(col): 
-    eCol = df.select(col)
-    currCol = eCol.createOrReplaceTempView("currCol")
-    average_length = spark.sql("SELECT AVG(char_length(`" + col + "`)) FROM currCol WHERE `" + col + "` != '' AND `" + col + "` is NOT NULL")
+def average_length(df_col): 
+    df_col = df_col.createOrReplaceTempView("df_col")
+    average_length = spark.sql("SELECT AVG(char_length(`" + col + "`)) FROM df_col WHERE `" + col + "` != '' AND `" + col + "` is NOT NULL")
     res = average_length.rdd.flatMap(lambda x: x).collect()
     return res
 
 #functions for real and int type
-def max_value_for_real_int(col):
-    eCol = df.select(col)
-    currCol = eCol.createOrReplaceTempView("currCol")
-    max_value_for_real_int = spark.sql("SELECT MAX(*) FROM currCol WHERE `" + col + "` is NOT NULL")
+def max_value_for_real_int(df_col):
+    df_col = df_col.createOrReplaceTempView("df_col")
+    max_value_for_real_int = spark.sql("SELECT MAX(*) FROM df_col WHERE `" + col + "` is NOT NULL")
     res = max_value_for_real_int.rdd.flatMap(lambda x: x).collect()
     return res
 
-def min_value_for_real_int(col):
-    eCol = df.select(col)
-    currCol = eCol.createOrReplaceTempView("currCol")
-    min_value_for_real_int = spark.sql("SELECT MIN(*) FROM currCol WHERE `" + col + "` is NOT NULL")
+def min_value_for_real_int(df_col):
+    df_col = df_col.createOrReplaceTempView("df_col")
+    min_value_for_real_int = spark.sql("SELECT MIN(*) FROM df_col WHERE `" + col + "` is NOT NULL")
     res = min_value_for_real_int.rdd.flatMap(lambda x: x).collect()
     return res
 
-def mean_for_real_int(col):
-    eCol = df.select(col)
-    currCol = eCol.createOrReplaceTempView("currCol")
-    mean_for_real_int = spark.sql("SELECT AVG(*) FROM currCol WHERE `" + col + "` is NOT NULL")
+def mean_for_real_int(df_col):
+    df_col = df_col.createOrReplaceTempView("df_col")
+    mean_for_real_int = spark.sql("SELECT AVG(*) FROM df_col WHERE `" + col + "` is NOT NULL")
     res = mean_for_real_int.rdd.flatMap(lambda x: x).collect()
     return res
 
-def stddev_for_real_int(col):
-    eCol = df.select(col)
-    currCol = eCol.createOrReplaceTempView("currCol")
-    stddev_for_real_int = spark.sql("SELECT STD(*) FROM currCol WHERE `" + col + "` is NOT NULL")
+def stddev_for_real_int(df_col):
+    df_col = df_col.createOrReplaceTempView("df_col")
+    stddev_for_real_int = spark.sql("SELECT STD(*) FROM df_col WHERE `" + col + "` is NOT NULL")
     res = stddev_for_real_int.rdd.flatMap(lambda x: x).collect()
     return res
 
 #functions for date/time type
-def min_value(col): 
-    eCol = df.select(col)
-    currCol = eCol.createOrReplaceTempView("currCol")
-    min_value = spark.sql("SELECT * FROM currCol ORDER BY ASC LIMIT 1 ")
-    res = min_value.rdd.flatMap(lambda x: x).collect()
+def max_value(df_col): 
+    df_col = df_date.createOrReplaceTempView("df_col")
+    max_value = spark.sql("SELECT * FROM df_col ORDER BY `" + col + "` DESC LIMIT 1")
+    res = max_value.rdd.flatMap(lambda x: x).collect()
     return res
 
-def max_value(col): 
-    eCol = df.select(col)
-    currCol = eCol.createOrReplaceTempView("currCol")
-    max_value = spark.sql("SELECT * FROM currCol ORDER BY DESC LIMIT 1 ")
-    res = max_value.rdd.flatMap(lambda x: x).collect()
+def min_value(df_col): 
+    df_col = df_col.createOrReplaceTempView("df_col")
+    min_value = spark.sql("SELECT * FROM df_col ORDER BY `" + col + "` ASC LIMIT 1")
+    res = min_value.rdd.flatMap(lambda x: x).collect()
     return res
 
 # --- Function Definitions End ------------------------------------------------
@@ -163,12 +166,17 @@ if __name__ == "__main__":
         "columns": [],
         "key_column_candidates": []
     }
-    # Output JSON DataType Schema - INTEGER
-    intSchema = {
+    # Output JSON Schema - For EACH COL
+    colSchema = {
         "column_name": "",
         "number_non_empty_cells": 0,
+        "number_empty_cells" : 0,
         "number_distinct_values": 0,
-        "frequent_values": [],
+        "frequent_values": []  
+    }
+
+    # Output JSON DataType Schema - INTEGER - FOR EACH DATA TYPE
+    intSchema = {
         "data_types": {
             "type": "INTEGER (LONG)",
             "count": 0,
@@ -176,19 +184,10 @@ if __name__ == "__main__":
             "min_value": 0,
             "mean": 0,
             "stddev": 0
-        },
-        "semantic_types": {
-            "semantic_type": "",
-            "count": 0
         }
-
     }
     # Output JSON DataType Schema - REAL
     realSchema = {
-        "column_name": "",
-        "number_non_empty_cells": 0,
-        "number_distinct_values": 0,
-        "frequent_values": [],
         "data_types": {
             "type": "REAL",
             "count": 0,
@@ -196,42 +195,30 @@ if __name__ == "__main__":
             "min_value": 0,
             "mean": 0,
             "stddev": 0            
-        },
-        "semantic_types": {
-            "semantic_type": "",
-            "count": 0
         }
     }
     # Output JSON DataType Schema - DATE/TIME
     dateTimeSchema = {
-        "column_name": "",
-        "number_non_empty_cells": 0,
-        "number_distinct_values": 0,
-        "frequent_values": [],
         "data_types": {
             "type": "DATE/TIME",
             "count": 0,
             "max_value": "",
             "min_value": ""
-        },
-        "semantic_types": {
-            "semantic_type": "",
-            "count": 0
         }
     }
     # Output JSON DataType Schema - TEXT
     textSchema = {
-        "column_name": "",
-        "number_non_empty_cells": 0,
-        "number_distinct_values": 0,
-        "frequent_values": [],
         "data_types": {
             "type": "TEXT",
             "count": 0,
             "shortest_values": [],
             "longest_values": [],
             "average_length": 0
-        },
+        }
+    }
+    # Output JSON Semantic Schema
+    
+    semanticSchema = {
         "semantic_types": {
             "semantic_type": "",
             "count": 0
@@ -257,105 +244,153 @@ if __name__ == "__main__":
         
         # Copy of the jsonSchema for current iteration 
         outJSON = jsonSchema.copy()
-
-
-                
+        outJSON["dataset_name"] = filename
+        outJSON["columns"] = df.columns
+        outJSON["key_columns_candidates"] = get_key_columns_candidates(df)
+        # Create an empty list for the final result for each dataset 
+        outAllRes = []
+        outAllRes.append(outJSON)
+   
         # ---------------------------------------------------------------------
         # --- ENTER FUNCTION CALLS FROM HERE ----------------------------------
 
-        # 01) Setting the "dataset_name" attribute
-        outJSON["dataset_name"] = filename
-        # 03) Finding "colomns" attribute for each column
+        # 0Finding "colomns" attribute for each column
 
         for col in df.columns:
-#       TODO: Define of different types regex list:
-            date_time_list = ['\d{4}-\d{2}-\d{2}', 
-                              '\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}',
-                              '\d{2}\/\d{2}\/\d{4}',
-                              '\d{4}\/\d{2}\/\d{2}',
-                              '\d{2}:\d{2}:\d{2}.*'
-                             ]
-            integer_list = ['^\d+$',
-                            ]
-            real_list = []
-        #     Everthing else would be string types 
-            string_list = []
+            # Create an empty list for the temp result for each column 
+            outColRes = []
+            outJSON_col = colSchema.copy()
+            outJSON_col["column_name"] = col
+            outJSON_col["number_non_empty_cells"] = ', '.join(map(str, number_non_empty_cells(df)))
+            outJSON_col["number_empty_cells"] = ', '.join(map(str, number_empty_cells(df)))
+            outJSON_col["number_distinct_values"] = ', '.join(map(str, number_distinct_values(df)))
+            outJSON_col["frequent_values"] = ', '.join(map(str, frequent_values(df)))
+            outColRes.append(outJSON_col)   
+
+            # Define of different types regex list:
+
+            date_list = ['\d{4}-\d{2}-\d{2}', 
+                         '\d{2}\/\d{2}\/\d{4}',
+                         '\d{4}\/\d{2}\/\d{2}',
+                         '\d{2}-\d{2}-\d{4}',
+                        ]
+
+            time_list = ['\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}',
+                         '\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}',
+                         '\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\s[A-Z].',
+                         '\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\s[a-z].',
+                         '\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}\s[A-Z].',
+                         '\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}\s[a-z].',
+                         '\d{2}:\d{2}:\d{2}',
+                         '\d{2}:\d{2}:\d{2}\s[A-Z].',
+                         '\d{2}:\d{2}:\d{2}\s[a-z].',
+                         '\d{2}:\d{2}',
+                         '\d{2}:\d{2}\s[A-Z].',
+                         '\d{2}:\d{2}\s[a-z].',
+                         '\d{1}:\d{2}\s[A-Z].',
+                         '\d{1}:\d{2}\s[a-z].'
+                        ]
+
+            integer_list = ['^[-+]?[0-9]+$']
+
+            real_list = ['[-+]?([0-9]*\.[0-9]+)']
             
-        #     create empty dict for each types for output 
+            # Create empty dict for each types for output 
+
             matchDate = []
             matchString = []
             matchInt = []
             matchReal = []
             res = df.select(col).rdd.collect()
-        #Go thru every cell in for each col
+
+            # Go over every cell in for each col
             for row in res:
                 strrow = str(row[0])
-                for r in date_time_list:
+                for r in date_list:
                     match = re.findall(r, strrow)
+                    matchstr = ' '.join(match)
                     if match: 
-                        matchDate.append(match)
+                    # If match, cast all possible formates to timeStamp str
+                        matchstr = parse_Date(matchstr)
+                        matchDateTime.append(matchstr)
+                for r in time_list:
+                    match =  re.findall(r, strrow)
+                    matchstr = ' '.join(match)
+                    if match: 
+                        matchDateTime.append(matchstr)
                 for r in integer_list:
                     match = re.findall(r, strrow)
+                    matchstr = ' '.join(match)
                     if match: 
-                        matchInt.append(match)
+                        matchInt.append(matchstr)
                 for r in real_list:
                     match = re.findall(r, strrow)
+                    matchstr = ' '.join(match)
                     if match: 
-                        matchReal.append(match)
-        # TODO: need a way to figure out for string types 
+                        matchReal.append(matchstr)
+                # All the entries that not match Date/Time, Integer and Real are String(Text)
+                if strrow not in matchInt and strrow not in matchDateTime and strrow not in matchReal: 
+                    matchString.append(strrow)
 
-            if matchDate:
-        #         date_time_df = spark.createDataFrame(matchDate)
-        #         need call ufd functions for each datetypes 
-        #         outJSON = dateTimeSchema.copy()
-        #         outJSON["column_name"] = col
-        #         outJSON["number_non_empty_cells"] = ', '.join(map(str, number_non_empty_cells( date_time_df)))
-        #         outJSON["number_distinct_values"] = ', '.join(map(str, number_distinct_values( date_time_df)))
-        #         outJSON["frequent_values"] = ', '.join(map(str, frequent_values( date_time_df)))
-        #         outJSON["data_types"]["count"] = ', '.join(map(str, count( date_time_df)))
-        #         outJSON["data_types"]["max_value"] = ', '.join(map(str,  max_value( date_time_df)))
-        #         outJSON["data_types"]["min_value"] = ', '.join(map(str,  min_value( date_time_df)))
+            # If data type is Date and Time: 
+             if matchDateTime:
+                name = col
+                rdd = spark.sparkContext.parallelize(matchDateTime)
+                df_date = rdd.map(lambda x: (x, )).toDF()
+                df_date = df_date.withColumnRenamed("_1", name)
+                outJSON_DATE = dateTimeSchema.copy()
+                outJSON_DATE["data_types"]["count"] = ', '.join(map(str, count(df_date)))
+                outJSON_DATE["data_types"]["max_value"] = ', '.join(map(str,  max_value(df_date)))
+                outJSON_DATE["data_types"]["min_value"] = ', '.join(map(str,  min_value(df_date)))
+                outColRes.append(outJSON_DATE)
+            # If data type is Int and Long
             if matchInt:
-        #         TODO: createDataFrame and call ufds for int   
-        #         outJSON = intSchema.copy()
-        #         outJSON["column_name"] = col
-        #         outJSON["number_non_empty_cells"] = ', '.join(map(str, number_non_empty_cells(col)))
-        #         outJSON["number_distinct_values"] = ', '.join(map(str, number_distinct_values(col)))
-        #         outJSON["frequent_values"] = ', '.join(map(str, frequent_values(col)))
-        #         outJSON["data_types"]["count"] = ', '.join(map(str, count(col)))
-        #         outJSON["data_types"]["max_value"] = ', '.join(map(str, max_value_for_real_int(col)))
-        #         outJSON["data_types"]["min_value"] = ', '.join(map(str,  min_value_for_real_int(col)))
-        #         outJSON["data_types"]["mean"] = ', '.join(map(str,  mean_for_real_int(col)))
-        #         outJSON["data_types"]["stddev"] = ', '.join(map(str,  stddev_for_real_int(col)))
-             if matchReal:
-        #         createDataFrame and call ufds for real
-        #         outJSON["column_name"] = col
-        #         outJSON["number_non_empty_cells"] = ', '.join(map(str, number_non_empty_cells(col)))
-        #         outJSON["number_distinct_values"] = ', '.join(map(str, number_distinct_values(col)))
-        #         outJSON["frequent_values"] = ', '.join(map(str, frequent_values(col)))
-        #         outJSON["data_types"]["count"] = ', '.join(map(str, count(col)))
-        #         outJSON["data_types"]["max_value"] = ', '.join(map(str, max_value_for_real_int(col)))
-        #         outJSON["data_types"]["min_value"] = ', '.join(map(str,  min_value_for_real_int(col)))
-        #         outJSON["data_types"]["mean"] = ', '.join(map(str,  mean_for_real_int(col)))
-        #         outJSON["data_types"]["stddev"] = ', '.join(map(str,  stddev_for_real_int(col)))
-             else: 
-        #         createDataFrame and call ufds for string
-        #         outJSON = textSchema.copy()
-        #         outJSON["column_name"] = col
-        #         outJSON["number_non_empty_cells"] = (', '.join(map(str, number_non_empty_cells(col))))
-        #         outJSON["number_distinct_values"] = ', '.join(map(str, number_distinct_values(col)))
-        #         outJSON["frequent_values"] = ', '.join(map(str, frequent_values(col)))
-        #         outJSON["data_types"]["count"] = ', '.join(map(str, count(col)))
-        #         outJSON["data_types"]["shortest_values"] = ', '.join(map(str, shortest_values(col)))
-        #         outJSON["data_types"]["longest_values"] = ', '.join(map(str,  longest_values(col)))
-        #         outJSON["data_types"]["average_length"] = ', '.join(map(str,  average_length(col)))
-     
-        # 03) Finding "key_columns_candidates" attribute
-        outJSON["key_columns_candidates"] = get_key_columns_candidates(df)
+                name = col 
+                rdd = spark.sparkContext.parallelize(matchInt)
+                df_int = rdd.map(lambda x: (x, )).toDF()
+                df_int = df_int.withColumnRenamed("_1", name)
+                outJSON_int = intSchema.copy()
+                outJSON_int["data_types"]["count"] = ', '.join(map(str, count(df_int)))
+                outJSON_int["data_types"]["max_value"] = ', '.join(map(str, max_value_for_real_int(df_int)))
+                outJSON_int["data_types"]["min_value"] = ', '.join(map(str,  min_value_for_real_int(df_int)))
+                outJSON_int["data_types"]["mean"] = ', '.join(map(str,  mean_for_real_int(df_int)))
+                outJSON_int["data_types"]["stddev"] = ', '.join(map(str,  stddev_for_real_int(df_int)))
+                outColRes.append(outJSON_int)
+             # If data type is Real
+            if matchReal:
+                name = col 
+                rdd = spark.sparkContext.parallelize(matchReal)
+                df_real = rdd.map(lambda x: (x, )).toDF()
+                df_real = df_real.withColumnRenamed("_1", name)
+                outJSON_real = realSchema.copy()
+                outJSON_real["data_types"]["count"] = ', '.join(map(str, count(df_real)))
+                outJSON_real["data_types"]["max_value"] = ', '.join(map(str, max_value_for_real_int(df_real)))
+                outJSON_real["data_types"]["min_value"] = ', '.join(map(str,  min_value_for_real_int(df_real)))
+                outJSON_real["data_types"]["mean"] = ', '.join(map(str,  mean_for_real_int(df_real)))
+                outJSON_real["data_types"]["stddev"] = ', '.join(map(str,  stddev_for_real_int(df_real)))
+                outColRes.append(outJSON_real)
+            # If data type is TEXT
+            if matchString:
+                name = col
+                rdd = spark.sparkContext.parallelize(matchString)
+                df_string = rdd.map(lambda x: (x, )).toDF()
+                df_string = df_string.withColumnRenamed("_1", name)
+                outJSON_string = textSchema.copy()
+                outJSON_string["data_types"]["count"] = ', '.join(map(str, count(df_string)))
+                outJSON_string["data_types"]["shortest_values"] = ', '.join(map(str, shortest_values(df_string)))
+                outJSON_string["data_types"]["longest_values"] = ', '.join(map(str,  longest_values(df_string)))
+                outJSON_string["data_types"]["average_length"] = ', '.join(map(str,  average_length(df_string)))
+                outColRes.append(outJSON_string)
+
+        # TODO: add output for semanticSchema
+        
+
+        # Append all column's result to the data set's final result 
+            outAllRes.append(outColRes)
 
         # --- FUNCTION CALLS END HERE -----------------------------------------
         # ---------------------------------------------------------------------
         
         # Exporting the JSON for current dataset
-        outJSON = sc.parallelize([outJSON])
-        outJSON.saveAsTextFile(outputDirectory + filename + '.json')
+        outAllRes = sc.parallelize(outAllRes)
+        outAllRes.saveAsTextFile(outputDirectory + filename + '.json')
