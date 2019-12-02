@@ -1,0 +1,4 @@
+building_classification
+R2-WALK-UP	77
+R4-ELEVATOR	247
+R9-CONDOPS	29

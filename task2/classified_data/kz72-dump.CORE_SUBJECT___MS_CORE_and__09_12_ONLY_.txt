@@ -1,0 +1,6 @@
+school_subject
+-	25
+ENGLISH	7
+MATH	7
+SCIENCE	7
+SOCIAL STUDIES	7
