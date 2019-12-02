@@ -1,0 +1,6 @@
+school_subject
+-	34
+ENGLISH	21
+MATH	32
+SCIENCE	32
+SOCIAL STUDIES	28
