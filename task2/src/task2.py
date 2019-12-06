@@ -17,10 +17,125 @@ from pyspark import SparkContext
 from pyspark.sql import SQLContext, SparkSession, Row
 from pyspark.sql.functions import udf, unix_timestamp, col
 from pyspark.sql.types import StructType, StructField, IntegerType, StringType, FloatType, DateType, TimestampType
-
+from pyspark.sql.functions import mean as _mean, stddev as _stddev, col
+from pyspark.ml.feature import MinMaxScaler
+from pyspark.ml.feature import VectorAssembler
+from pyspark.ml import Pipeline 
+import spacy
+from spacy import displacy
+from collections import Counter
+import en_core_web_sm
 # -----------------------------------------------------------------------------
 # --- Function Definitions Begin ----------------------------------------------
 
+# Function to find meand and stdv for all files
+def mean_stdv(df):
+    unlist = udf(lambda x: round(float(list(x)[0]),3), DoubleType())
+    for i in ["count"]:
+        assembler = VectorAssembler(inputCols=[i],outputCol=i+"_Vect")
+        scaler = MinMaxScaler(inputCol=i+"_Vect", outputCol=i+"_Scaled")
+        pipeline = Pipeline(stages=[assembler, scaler])
+        df = pipeline.fit(df).transform(df).withColumn(i+"_Scaled", unlist(i+"_Scaled")).drop(i+"_Vect")
+        df_stats = df.select(_mean(col('count_Scaled')).alias('mean'),_stddev(col('count_Scaled')).alias('std')).collect()
+        mean = df_stats[0]['mean']
+        std = df_stats[0]['std']
+        return df_stats 
+
+# Function to sum all count of values for all files
+def count_all_values(df):
+    res = df.rdd.map(lambda x: (1,x[1])).reduceByKey(lambda x,y: x + y).collect()[0][1]
+    return res
+
+# Regex function to check website type
+def re_find_website(df,count_all,found_type):
+    web_re_rexpr = "WWW\.|\.COM|HTTP\:"
+    df_filtered = df.filter(df["val"].rlike(web_re_rexpr))
+    if (df_filtered.count() is not 0):
+        count_filtered = df_filtered.rdd.map(lambda x: (1,x[1])).reduceByKey(lambda x,y: x + y).collect()[0][1]
+        res = float(count_filtered/count_all)
+        if (res >= 0.85): 
+            found_type = found_type + "website"
+        return res, found_type
+    else:
+        return 0, found_type
+
+# Regex function to check zip type
+def re_find_zipCode(df,count_all,found_type):
+    zip_re_rexpr = "\d\d\d\d\d|\d\d\d\d\d\-\d\d\d|\d\d\d\d\d\d\d\d"
+    df_filtered = df.filter(df["val"].rlike(zip_re_rexpr))
+    if (df_filtered.count() is not 0):
+        count_filtered = df_filtered.rdd.map(lambda x: (1,x[1])).reduceByKey(lambda x,y: x + y).collect()[0][1]
+        res = float(count_filtered/count_all)
+        if (res >= 0.85): 
+            found_type = found_type + "zipCode"
+        return res, found_type
+    else:
+        return 0, found_type
+
+# Regex function to check buildingCode type
+def re_find_buildingCode(df,count_all,found_type):
+    bc_re_rexpr = "([A-Z])\d\-"
+    df_filtered = df.filter(df["val"].rlike(bc_re_rexpr))
+    if (df_filtered.count() is not 0):
+        count_filtered = df_filtered.rdd.map(lambda x: (1,x[1])).reduceByKey(lambda x,y: x + y).collect()[0][1]
+        res = float(count_filtered/count_all)
+        if (res >= 0.85): 
+            found_type = found_type + "buildingCode"
+        return res, found_type
+    else:
+        return 0, found_type
+
+# Regex function to check phone number type
+def re_find_phoneNum(df,count_all,found_type):
+    phone_re_rexpr = "\d\d\d\d\d\d\d\d\d\d|\(\d\d\d\)\d\d\d\d\d\d\d|\d\d\d\-\d\d\d\-\d\d\d\d"
+    df_filtered = df.filter(df["val"].rlike(phone_re_rexpr))
+    if (df_filtered.count() is not 0):
+        count_filtered = df_filtered.rdd.map(lambda x: (1,x[1])).reduceByKey(lambda x,y: x + y).collect()[0][1]
+        res = float(count_filtered/count_all)
+        if (res >= 0.85): 
+            found_type = found_type + "phoneNum"
+        return res, found_type
+    else:
+        return 0, found_type
+
+# Regex function to check lat_lon type
+def re_find_lat_lon(df,count_all,found_type):
+    ll_re_rexpr = "\([-+]?[0-9]+\.[0-9]+\,\s*[-+]?[0-9]+\.[0-9]+\)"
+    df_filtered = df.filter(df["val"].rlike(ll_re_rexpr))
+    if (df_filtered.count() is not 0):
+        count_filtered = df_filtered.rdd.map(lambda x: (1,x[1])).reduceByKey(lambda x,y: x + y).collect()[0][1]
+        res = float(count_filtered/count_all)
+        if (res >= 0.85): 
+            found_type = found_type + "lat_lon"
+        return res, found_type
+    else:
+        return 0, found_type
+
+# Regex function to check street_addrees type
+def re_find_street_address(df,count_all,found_type):
+    st_re_rexpr = "\sROAD|\sSTREET|\sPLACE|\sDRIVE|\sBLVD|\sST|\sRD|\sDR|\sAVENUE"
+    df_filtered = df.filter(df["val"].rlike(st_re_rexpr))
+    if (df_filtered.count() is not 0):
+        count_filtered = df_filtered.rdd.map(lambda x: (1,x[1])).reduceByKey(lambda x,y: x + y).collect()[0][1]
+        res = float(count_filtered/count_all)
+        if (res >= 0.5): 
+            found_type = found_type + "street/address"
+        return res, found_type
+    else:
+        return 0, found_type
+
+# Regex function to check school name type
+def re_find_school(df,count_all,found_type):
+    school_re_rexpr = "SCHOOL|ACADEMY|HS\s|ACAD|I.S.\s|IS\s|M.S.\s|P.S\s|PS\s"
+    df_filtered = df.filter(df["val"].rlike(school_re_rexpr))
+    if (df_filtered.count() is not 0):
+        count_filtered = df_filtered.rdd.map(lambda x: (1,x[1])).reduceByKey(lambda x,y: x + y).collect()[0][1]
+        res = float(count_filtered/count_all)
+        if (res >= 0.5): 
+            found_type = found_type + "school name"
+        return res, found_type
+    else:
+        return 0, found_type
 
 # --- Function Definitions End ------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -80,25 +195,42 @@ if __name__ == "__main__":
 
     #Testing first 50 files
     for filename in raw_list[0:50]:
-
         print("Processing Dataset =========== : ", str(processCount) + ' - ' +filename)
-        df = sqlContext.read.format("csv").option("header",
-        "false").option("inferSchema", "true").option("delimiter", 
-        "\t").schema(customSchema).load(inputDirectory + filename)
+        # Read file to dataset and apply all regex functions
+        found_type = ""
+        fileinfo = []
+        df = sqlContext.read.format("csv").option("header","false").option("inferSchema", "true").option("delimiter", "\t").schema(customSchema).load(inputDirectory + filename)
+        df_stats = mean_stdv(df)
+        mean = df_stats[0]['mean']
+        std = df_stats[0]['std']
+        count_all = count_all_values(df)
+        precentage_website, found_type = re_find_website(df,count_all,found_type)
+        precentage_zip, found_type= re_find_zipCode(df,count_all,found_type)
+        percentage_buildingCode, found_type = re_find_buildingCode(df,count_all,found_type)
+        percentage_phoneNum, found_type = re_find_phoneNum(df,count_all,found_type)
+        percentage_lat_lon, found_type = re_find_lat_lon(df,count_all,found_type)
+        percentage_add_st, found_type = re_find_street_address(df,count_all,found_type)
+        percentage_add_school, found_type = re_find_school(df,count_all,found_type)
+        fileinfo.extend([filename,mean,std,count_all,precentage_website, precentage_zip, percentage_buildingCode, percentage_phoneNum,percentage_lat_lon,percentage_add_st,percentage_add_school,found_type])
+        regex_res.append(fileinfo)
 
-        # Count all val in df with count 
-        count_all = df.rdd.map(lambda x: (1,x[1])).reduceByKey(lambda x,y: x + y).collect()[0][1]
+    # Output regex function result 
+    rdd = sc.parallelize(regex_res)
+    row_rdd = rdd.map(lambda x: Row(x))
+    df = row_rdd.toDF()
+    df = df.select(col('_1').alias('coln'))
+    length = len(df.select('coln').take(1)[0][0])
+    df = df.select([df.coln[i] for i in range(length)])
+    df = df.select(col('coln[0]').alias('filename'),col('coln[1]').alias('mean'),col('coln[2]').alias('stdv'),
+                   col('coln[3]').alias('count_all'),col('coln[4]').alias('precentage_website'),col('coln[5]').alias('precentage_zip'),
+                   col('coln[6]').alias('percentage_buildingCode'),col('coln[7]').alias('percentage_phoneNum'),col('coln[8]').alias('percentage_lat_lon'),
+                   col('coln[9]').alias('percentage_add_st'),col('coln[10]').alias('percentage_add_school'),col('coln[11]').alias('types'),
+                   )
 
-        for k,v in expr_dic.items():
-        df_filtered = df.filter(df["val"].rlike(v))
-        if (df_filtered.count() is not 0):
-            count_filtered = df_filtered.rdd.map(lambda x: (1,x[1])).reduceByKey(lambda x,y: x + y).collect()[0][1]
-#             print("count_filtered:",count_filtered)
-            percentage = float(count_filtered/count_all)
-#             print("percentage of rows contains:", v , "is",percentage )
-            #Can change the percentage threshold later 
-            if (percentage > 0.85) :
-                print("semantic type is" , k)
+    types_found_count = df.where(col('types') > " ").count()
+    print(types_found_count)
+
+
 
         # # Reading the task1 JSON
         # outJSON = sc.textFile(outputDirectory + filename + '.json')
