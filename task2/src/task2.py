@@ -169,16 +169,6 @@ if __name__ == "__main__":
         "count": 0
     }
 
-    # Define of different types regex dict:
-    expr_dic = {"Street": "ROAD|STREET|PLACE|DRIVE|BLVD|%ST%|%RD%|DR|AVENUE",
-                "Website" : "WWW.|.COM|HTTP://",
-                "BuildingCode" : "([A-Z])\d\-",
-                "PhoneBumber":"\d\d\d\d\d\d\d\d\d\d|\(\d\d\d\)\d\d\d\d\d\d\d|\d\d\d\-\d\d\d\-\d\d\d\d",
-                "ZipCode":"\d\d\d\d\d|\d\d\d\d\d\-\d\d\d|\d\d\d\d\d\d\d\d",
-                "Lat_Lon" : "\([-+]?[0-9]+\.[0-9]+\,\s*[-+]?[0-9]+\.[0-9]+\)",
-                "SchoolName" : "SCHOOL|ACADEMY|HS|ACAD|I.S.|IS|M.S.|P.S|PS",
-                }
-
     # Importing cluster3 format it and put it into a list
     raw_data = sc.textFile("cluster3.txt")
     raw_list = raw_data.flatMap(lambda x: x.split(",")).collect()
