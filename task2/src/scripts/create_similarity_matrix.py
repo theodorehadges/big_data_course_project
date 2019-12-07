@@ -1,6 +1,10 @@
 import re
 import csv
 import numpy as np
+import scipy
+import pandas as pd
+import json
+from scipy.cluster.hierarchy import linkage, fcluster
 
 def compute_jaccard_similarity(s1, s2):
     return(len(set(s1.lower()).intersection(set(s2.lower())))/len(set(s1.lower()).union(set(s2.lower()))))
@@ -29,10 +33,29 @@ if __name__ == "__main__":
         for j, name_y in enumerate(clean_list):
             M[i][j] = compute_jaccard_similarity(name_x, name_y)
 
-    # save the matrix
-    np.savetxt('../../intermediary_data/filename_similarity_matrix.csv', M, delimiter=',')   # X is an array
+    
+    linkage_matrix = scipy.cluster.hierarchy.linkage(M)
+    fcluster = fcluster(linkage_matrix, t=1.12)
 
-    # save the key (the list, which represents the axes)
+    cluster_id_dic = {str(x): [] for x in fcluster}
+
+    df = pd.DataFrame()
+    df['filename'] = raw_list
+    df['cluster_id'] = fcluster
+
+    for index, row in df.iterrows():
+        cluster_id_dic[str(row['cluster_id'])].append(row['filename'])
+
+    # write cluster dic to json:
+    with open('../../intermediary_data/filename_clusters.json', 'w') as fp:
+        json.dump(cluster_id_dic, fp, sort_keys=True, indent=4)
+
+    # write similarity matrix to csv
+    np.savetxt('../../intermediary_data/filename_similarity_matrix.csv', M, delimiter=',')
+
+    # write file list to text file (the list represents the axes of the sim matrix)
     with open('../../intermediary_data/filelist_axis_sim_matrix', 'w') as f:
         wr = csv.writer(f, quoting=csv.QUOTE_ALL)
         wr.writerow(clean_list)
+
+        
