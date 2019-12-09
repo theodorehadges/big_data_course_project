@@ -1,0 +1,5 @@
+spacy
+nltk
+textblob
+
+nltk.download('punkt')
