@@ -4,6 +4,7 @@ borough
 building_classification
 business_name
 car_make
+car_model
 city
 city_agency
 color
