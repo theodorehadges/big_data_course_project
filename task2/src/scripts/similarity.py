@@ -42,8 +42,8 @@ def write_to_json(cluster_id_dic):
     with open('../../resources/filename_clusters.json', 'w') as fp:
         json.dump(cluster_id_dic, fp, sort_keys=True, indent=4)
 
-def write_list_to_txt(file_list):
-    with open('../../resources/filelist_axis_sim_matrix', 'w') as f:
+def write_list_to_txt(file_list, dest_filename):
+    with open('../../resources/'+dest_filename, 'w') as f:
         wr = csv.writer(f, quoting=csv.QUOTE_ALL)
         wr.writerow(file_list)
 
@@ -96,14 +96,79 @@ if __name__ == "__main__":
     linkage_matrix = scipy.cluster.hierarchy.linkage(M)
     fcluster = fcluster(linkage_matrix, t=0.9)
 
-    cluster_id_dic = {str(x): [] for x in fcluster}
+    cluster_id_dic = {'cluster'+str(x): [] for x in fcluster}
 
     df = pd.DataFrame()
     df['filename'] = raw_list
     df['cluster_id'] = fcluster
 
     for index, row in df.iterrows():
-        cluster_id_dic[str(row['cluster_id'])].append(row['filename'])
+        cluster_id_dic['cluster'+str(row['cluster_id'])].append(row['filename'])
+
+    # Areas of study (interests) filelist to text file
+    aos_filelist = []
+    for filename in cluster_id_dic['cluster7']:
+        aos_filelist.append(filename)
+    write_list_to_txt(aos_filelist, 'area_of_study_filelist')
+
+    # Parks and playgrounds file list to text file
+    park_playground_filelist = []
+    for filename in cluster_id_dic['cluster35']:
+        park_playground_filelist.append(filename)
+    write_list_to_txt(park_playground_filelist, 'park_playground_filelist')
+
+    # Agency file list to text file
+    agency_filelist = []
+    for filename in cluster_id_dic['cluster11']:
+        agency_filelist.append(filename)
+    for filename in cluster_id_dic['cluster32']:
+        agency_filelist.append(filename)
+    write_list_to_txt(agency_filelist, 'agency_filelist')
+
+
+    # Neighborhood file list to text file
+    neighborhood_filelist = []
+    for filename in cluster_id_dic['cluster5']:
+        neighborhood_filelist.append(filename)
+    for filename in cluster_id_dic['cluster62']:
+        neighborhood_filelist.append(filename)
+    for filename in cluster_id_dic['cluster63']:
+        neighborhood_filelist.append(filename)
+    write_list_to_txt(neighborhood_filelist, 'neighborhood_filelist')
+
+    # Location type file list to text file
+    location_type_filelist = []
+    for filename in cluster_id_dic['cluster42']:
+        if 'PREM' in filename:
+            location_type_filelist.append(filename)
+    write_list_to_txt(location_type_filelist, 'location_type_filelist')
+
+
+    # 15 22 26
+    # School name (sn) type file list to text file
+    sn_filelist = []
+    for filename in cluster_id_dic['cluster15']:
+        sn_filelist.append(filename)
+    for filename in cluster_id_dic['cluster22']:
+        sn_filelist.append(filename)
+    for filename in cluster_id_dic['cluster26']:
+        sn_filelist.append(filename)
+    write_list_to_txt(sn_filelist, 'school_name_type_filelist')
+
+
+    # 1 2 3 4
+    # School subject (ss) type file list to text file
+    ss_filelist = []
+    for filename in cluster_id_dic['cluster1']:
+        ss_filelist.append(filename)
+    for filename in cluster_id_dic['cluster2']:
+        ss_filelist.append(filename)
+    for filename in cluster_id_dic['cluster3']:
+        ss_filelist.append(filename)
+    for filename in cluster_id_dic['cluster4']:
+        ss_filelist.append(filename)
+    write_list_to_txt(ss_filelist, 'school_subject_type_filelist')
+
 
     
     # write cluster dic to json
@@ -113,5 +178,5 @@ if __name__ == "__main__":
     write_matrix_to_csv(M)
 
     # write file list to text file (the list represents the axes of the sim matrix)
-    write_list_to_txt(clean_list)
+    write_list_to_txt(clean_list, 'filelist_axis_sim_matrix')
 
