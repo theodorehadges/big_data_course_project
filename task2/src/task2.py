@@ -62,7 +62,7 @@ def re_find_website(df,count_all,found_type):
 
 # Regex function to check zip type
 def re_find_zipCode(df,count_all,found_type):
-    zip_re_rexpr = "\d\d\d\d\d|\d\d\d\d\d\-\d\d\d|\d\d\d\d\d\d\d\d"
+    zip_re_rexpr = "^\d{5}?$|^\d{5}?-\d\d\d$|^\d{8}?$"
     df_filtered = df.filter(df["val"].rlike(zip_re_rexpr))
     if (df_filtered.count() is not 0):
         count_filtered = df_filtered.rdd.map(lambda x: (1,x[1])).reduceByKey(lambda x,y: x + y).collect()[0][1]
@@ -88,7 +88,7 @@ def re_find_buildingCode(df,count_all,found_type):
 
 # Regex function to check phone number type
 def re_find_phoneNum(df,count_all,found_type):
-    phone_re_rexpr = "\d\d\d\d\d\d\d\d\d\d|\(\d\d\d\)\d\d\d\d\d\d\d|\d\d\d\-\d\d\d\-\d\d\d\d"
+    phone_re_rexpr = "^\d{10}?$|^\(\d\d\d\)\d\d\d\d\d\d\d$|^\d\d\d\-\d\d\d\-\d\d\d\d$"
     df_filtered = df.filter(df["val"].rlike(phone_re_rexpr))
     if (df_filtered.count() is not 0):
         count_filtered = df_filtered.rdd.map(lambda x: (1,x[1])).reduceByKey(lambda x,y: x + y).collect()[0][1]
@@ -113,21 +113,24 @@ def re_find_lat_lon(df,count_all,found_type):
         return 0, found_type
 
 # Regex function to check street_addrees type
-def re_find_street_address(df,count_all,found_type):
-    st_re_rexpr = "\sROAD|\sSTREET|\sPLACE|\sDRIVE|\sBLVD|\sST|\sRD|\sDR|\sAVENUE"
+def re_find_street_address(df,count_all,col_length,found_type):
+    st_re_rexpr = "\sROAD|\sSTREET|\sPLACE|\sDRIVE|\sBLVD|\sST|\sRD|\sDR|\sAVENUE|\sAVE"
     df_filtered = df.filter(df["val"].rlike(st_re_rexpr))
     if (df_filtered.count() is not 0):
         count_filtered = df_filtered.rdd.map(lambda x: (1,x[1])).reduceByKey(lambda x,y: x + y).collect()[0][1]
         res = float(count_filtered/count_all)
-        if (res >= 0.5): 
-            found_type = found_type + ["address", "street"]
+        if (res >= 0.8): 
+            if (col_length >= 15):
+                found_type = found_type + ["address"]
+            elif (col_length < 15):
+                found_type = found_type + ["street"]
         return res, found_type
     else:
         return 0, found_type
 
 # Regex function to check school name type
 def re_find_school(df,count_all,found_type):
-    school_re_rexpr = "SCHOOL|ACADEMY|HS\s|ACAD|I.S.\s|IS\s|M.S.\s|P.S\s|PS\s"
+    school_re_rexpr = "\sSCHOOL|\sACADEMY|HS\s|ACAD|I.S.\s|IS\s|M.S.\s|P.S\s|PS\s|ACADEMY\s"
     df_filtered = df.filter(df["val"].rlike(school_re_rexpr))
     if (df_filtered.count() is not 0):
         count_filtered = df_filtered.rdd.map(lambda x: (1,x[1])).reduceByKey(lambda x,y: x + y).collect()[0][1]
@@ -138,6 +141,126 @@ def re_find_school(df,count_all,found_type):
     else:
         return 0, found_type
 
+# Regex function for checking house number 
+def re_find_houseNo(df,count_all,found_type):
+    houseNo_re_rexpr = "^\d{2}?$|^\d{3}?$|^\d{4}?$"
+    df_filtered = df.filter(df["val"].rlike(houseNo_re_rexpr))
+    if (df_filtered.count() is not 0):
+        count_filtered = df_filtered.rdd.map(lambda x: (1,x[1])).reduceByKey(lambda x,y: x + y).collect()[0][1]
+        res = float(count_filtered/count_all)
+        if (res >= 0.85): 
+            found_type = found_type + ["house number"]
+        return res, found_type
+    else:
+        return 0, found_type
+
+# Regex function for checking school subject
+def re_find_school_subject(df,count_all,found_type):
+    school_subj_re_rexpr = "^ENGLISH$|^ENGLISH\s[0-9]?$|^MATH\s[A-Z$]|^MATH$|^SCIENCE$|^SOCIAL\sSTUDIES$|^ALGEBRA\s[A-Z]$|\
+                            ^CHEMISTRY$|^ASSUMED\sTEAM\sTEACHING$|^EARTH\sSCIENCE$|^GEOMETRY$|^ECONOMICS$|^GLOBAL HISTORY$|\
+                            ^GLOBAL\sHISTORY[A-Z]$|^LIVING ENVIRONMENT$|^PHYSICS$|^US\sGOVERNMENT$|^US\sGOVERNMENT$|^US\sGOVERNMENT\s&|\
+                            ^US\SHISTORY$|^GLOBAL HISTORY\s[0-9]?$"
+    df_filtered = df.filter(df["val"].rlike(school_subj_re_rexpr))
+    if (df_filtered.count() is not 0):
+        count_filtered = df_filtered.rdd.map(lambda x: (1,x[1])).reduceByKey(lambda x,y: x + y).collect()[0][1]
+        res = float(count_filtered/count_all)
+        print(res)
+        if (res >= 0.5): 
+            found_type = found_type + ["school subject"]
+        return res, found_type
+    else:
+        return 0, found_type
+
+# Regex function for checking school level 
+def re_find_schoolLevel(df,count_all,found_type):
+    schlvl_re_rexpr = "^[K]\-\d?$|^HIGH SCHOOL$|^ELEMENTARY$|^ELEMENTARY SCHOOL$|^MIDDLE SCHOOL$|^TRANSFER\sSCHOOL$|^MIDDLE$|^HIGH\sSCHOOL\sTRANSFERL$|^YABC$|^[K]\-[0-9]{2}$"
+    df_filtered = df.filter(df["val"].rlike(schlvl_re_rexpr))
+    if (df_filtered.count() is not 0):
+        count_filtered = df_filtered.rdd.map(lambda x: (1,x[1])).reduceByKey(lambda x,y: x + y).collect()[0][1]
+        res = float(count_filtered/count_all)
+        if (res >= 0.85): 
+            found_type = found_type + ["school level"]
+        return res, found_type
+    else:
+        return 0, found_type
+
+# --- Functions FOR NLP Starts HERE -------------------------------------------
+def nlp_find_person(df,count_all,found_type):
+    #Your Code HERE: 
+    #Use count_all for percentage calculation
+    #Please return two values: (1)percentage of such type in this col AND (2)the type found for this column
+    #if found:
+#         found_type = found_type + ["person"]
+    #if not found:
+    return 0, found_type
+
+def nlp_find_business_name(df,count_all,found_type):
+    #Your Code HERE:
+    return 0, found_type
+
+def nlp_find_vehicle_type(df,count_all,found_type):
+    #Your Code HERE:
+    return 0, found_type
+
+def nlp_find_color(df,count_all,found_type):
+    #Your Code HERE:
+    return 0, found_type
+
+def nlp_find_car_make(df,count_all,found_type):
+    #Your Code HERE:
+    return 0, found_type
+
+def nlp_find_car_model(df,count_all,found_type):
+    #Your Code HERE:
+    return 0, found_type
+
+def nlp_find_neighborhood(df,count_all,found_type):
+    #Your Code HERE:
+    return 0, found_type
+
+def nlp_find_borough(df,count_all,found_type):
+    #Your Code HERE:
+    return 0, found_type
+
+def nlp_find_city(df,count_all,found_type):
+    #Your Code HERE:
+    return 0, found_type
+
+# --- Function FOR NLP End ------------------------------------------------
+
+# --- Functions FOR LIST COMPARISON Starts HERE -------------------------------
+def list_find_school_subject(df,count_all,found_type):
+    #Your Code HERE: 
+    #Use count_all for percentage calculation
+    #Please return two values: (1)percentage of such type in this col AND (2)the type found for this column
+    #if found:
+    #found_type = found_type + ["school subject"]
+    #if not found:
+    return 0, found_type
+
+def list_find_business_name(df,count_all,found_type):
+    #Your Code HERE: 
+    return 0, found_type
+
+def list_find_neighborhood(df,count_all,found_type):
+    #Your Code HERE: 
+    return 0, found_type
+
+def list_find_area_of_study(df,count_all,found_type):
+    #Your Code HERE: 
+    return 0, found_type
+
+def list_find_agency(df,count_all,found_type):
+    #Your Code HERE: 
+    return 0, found_type
+
+def list_find_location_type(df,count_all,found_type):
+    #Your Code HERE: 
+    return 0, found_type
+
+def list_find_parks_playgrounds(df,count_all,found_type):
+    #Your Code HERE: 
+    return 0, found_type
 
 # --- Function Definitions End ------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -204,14 +327,60 @@ if __name__ == "__main__":
         mean = df_stats[0]['mean']
         std = df_stats[0]['std']
         count_all = count_all_values(df)
-        precentage_website, found_type = re_find_website(df,count_all,found_type)
-        precentage_zip, found_type= re_find_zipCode(df,count_all,found_type)
+
+        #added col_length which is the average length of the col
+        df_length = df.select(_mean(length(col("val"))).alias('avg_length'))
+        col_length= df_length.collect()[0][0]
+
+        percentage_website, found_type = re_find_website(df,count_all,found_type)
+        percentage_zip, found_type= re_find_zipCode(df,count_all,found_type)
         percentage_buildingCode, found_type = re_find_buildingCode(df,count_all,found_type)
         percentage_phoneNum, found_type = re_find_phoneNum(df,count_all,found_type)
         percentage_lat_lon, found_type = re_find_lat_lon(df,count_all,found_type)
-        percentage_add_st, found_type = re_find_street_address(df,count_all,found_type)
-        percentage_add_school, found_type = re_find_school(df,count_all,found_type)
-        fileinfo.extend([filename,mean,std,count_all,precentage_website, precentage_zip, percentage_buildingCode, percentage_phoneNum,percentage_lat_lon,percentage_add_st,percentage_add_school,found_type])
+        percentage_add_st, found_type = re_find_street_address(df,count_all,col_length,found_type)
+        percentage_school_name, found_type = re_find_school(df,count_all,found_type)
+        percentage_house_no, found_type = re_find_houseNo(df,count_all,found_type)
+        percentage_school_lvl, found_type = re_find_schoolLevel(df,count_all,found_type)
+        percentage_school_subject, found_type = re_find_school_subject(df,count_all,found_type)
+
+        #give a default value for all other precentages 
+        percentage_person = 0
+        percentage_business_name = 0
+        percentage_vehicle_type = 0
+        percentage_color = 0
+        percentage_car_make = 0
+        percentage_car_model = 0
+        percentage_neighborhood = 0
+        percentage_borough= 0 
+        percentage_city = 0
+        percentage_area_of_study = 0
+        percentage_location = 0
+        percentage_agency = 0
+        percentage_parks_playgrounds = 0
+
+        #STEP TWO: NLP LABEL AND LIST CHECK
+        if not found_type:
+            #ANKUSH PART: NLP CHECK TYPES
+            percentage_person, found_type = nlp_find_person(df,count_all,found_type)
+            percentage_business_name, found_type = nlp_find_business_name(df,count_all,found_type)
+            percentage_vehicle_type, found_type = nlp_find_vehicle_type(df,count_all,found_type)
+            percentage_color, found_type = nlp_find_color(df,count_all,found_type)
+            percentage_car_make, found_type = nlp_find_car_make(df,count_all,found_type)
+            percentage_car_model, found_type = nlp_find_car_model(df,count_all,found_type)
+            percentage_neighborhood, found_type = nlp_find_neighborhood(df,count_all,found_type)
+            percentage_borough, found_type = nlp_find_borough(df,count_all,found_type)
+            percentage_city, found_type = nlp_find_city(df,count_all,found_type)
+        
+            #TED PART: LIST or SIMILARITY CHECK TYPEs
+            percentage_school_subject, found_type= list_find_school_subject(df,count_all,found_type)
+            percentage_business_name, found_type = list_find_business_name(df,count_all,found_type)
+            percentage_neighborhood, found_type = list_find_neighborhood(df,count_all,found_type)
+            percentage_area_of_study, found_type = list_find_area_of_study(df,count_all,found_type)
+            percentage_agency, found_type = list_find_agency(df,count_all,found_type)
+            percentage_location, found_type = list_find_location_type(df,count_all,found_type)
+            percentage_parks_playgrounds, found_type = list_find_parks_playgrounds(df,count_all,found_type
+
+        fileinfo.extend([filename,mean,std,count_all,col_length, percentage_website, percentage_zip,percentage_buildingCode,percentage_phoneNum,percentage_lat_lon,percentage_add_st,percentage_school_name,percentage_house_no,percentage_school_lvl,percentage_person,percentage_school_subject,percentage_vehicle_type, percentage_color,percentage_car_make,percentage_car_model,percentage_neighborhood,percentage_borough,percentage_city,percentage_business_name,percentage_area_of_study,percentage_location,percentage_parks_playgrounds,found_type])
         regex_res.append(fileinfo)
 
     # Output regex function result 
@@ -222,14 +391,20 @@ if __name__ == "__main__":
     length = len(df.select('coln').take(1)[0][0])
     df = df.select([df.coln[i] for i in range(length)])
     df = df.select(col('coln[0]').alias('filename'),col('coln[1]').alias('mean'),col('coln[2]').alias('stdv'),
-                    col('coln[3]').alias('count_all'),col('coln[4]').alias('precentage_website'),col('coln[5]').alias('precentage_zip'),
-                    col('coln[6]').alias('percentage_buildingCode'),col('coln[7]').alias('percentage_phoneNum'),col('coln[8]').alias('percentage_lat_lon'),
-                    col('coln[9]').alias('percentage_add_st'),col('coln[10]').alias('percentage_add_school'),col('coln[11]').alias('types'),
-                    )
+               col('coln[3]').alias('count_all'),col('coln[4]').alias('col_length'),col('coln[5]').alias('precentage_website'),
+               col('coln[6]').alias('precentage_zip'),col('coln[7]').alias('percentage_buildingCode'),col('coln[8]').alias('percentage_phoneNum'),
+               col('coln[9]').alias('percentage_lat_lon'),col('coln[10]').alias('percentage_add_st'),col('coln[11]').alias('percentage_school_name'),
+               col('coln[12]').alias('percentage_houseNo'),col('coln[13]').alias('percentage_school_lvl'),col('coln[14]').alias('percentage_person'),
+               col('coln[15]').alias('percentage_school_subject'),col('coln[16]').alias('percentage_vehicle_type'),col('coln[17]').alias('percentage_color'),
+               col('coln[18]').alias('percentage_car_make'),col('coln[19]').alias('percentage_car_model'),
+               col('coln[20]').alias('percentage_neighborhood'),col('coln[21]').alias('percentage_borough'),col('coln[22]').alias('percentage_city'),
+               col('coln[23]').alias('percentage_business_name'),col('coln[24]').alias('percentage_area_of_study'),col('coln[25]').alias('percentage_location_type'),
+               col('coln[26]').alias('percentage_parks_playgrounds'),col('coln[27]').alias('types')
+               )
 
     types_found_count = df.where(col('types') > " ").count()
     print(types_found_count)
-
+    df.write.csv('regex_res.csv')
 
 
     # # Reading the task1 JSON
