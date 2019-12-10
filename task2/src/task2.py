@@ -11,24 +11,25 @@ import sys
 import json
 import time
 import pyspark
+from ast import literal_eval
 from copy import deepcopy
 from datetime import datetime
 from pyspark import SparkContext
 from pyspark.sql import SQLContext, SparkSession, Row
 from pyspark.sql.functions import udf, unix_timestamp, col
-from pyspark.sql.types import StructType, StructField, IntegerType, StringType, FloatType, DateType, TimestampType
+from pyspark.sql.types import StructType, StructField, IntegerType, DoubleType, StringType, FloatType, DateType, TimestampType
 from pyspark.sql.functions import mean as _mean, stddev as _stddev, col
 from pyspark.ml.feature import MinMaxScaler
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml import Pipeline 
-import spacy
-from spacy import displacy
 from collections import Counter
-import en_core_web_sm
+#import spacy
+#from spacy import displacy
+#import en_core_web_sm
 # -----------------------------------------------------------------------------
 # --- Function Definitions Begin ----------------------------------------------
 
-# Function to find meand and stdv for all files
+# Function to find mean and stdv for all files
 def mean_stdv(df):
     unlist = udf(lambda x: round(float(list(x)[0]),3), DoubleType())
     for i in ["count"]:
@@ -54,7 +55,7 @@ def re_find_website(df,count_all,found_type):
         count_filtered = df_filtered.rdd.map(lambda x: (1,x[1])).reduceByKey(lambda x,y: x + y).collect()[0][1]
         res = float(count_filtered/count_all)
         if (res >= 0.85): 
-            found_type = found_type + "website"
+            found_type = found_type + ["website"]
         return res, found_type
     else:
         return 0, found_type
@@ -67,7 +68,7 @@ def re_find_zipCode(df,count_all,found_type):
         count_filtered = df_filtered.rdd.map(lambda x: (1,x[1])).reduceByKey(lambda x,y: x + y).collect()[0][1]
         res = float(count_filtered/count_all)
         if (res >= 0.85): 
-            found_type = found_type + "zipCode"
+            found_type = found_type + ["zip_code"]
         return res, found_type
     else:
         return 0, found_type
@@ -80,7 +81,7 @@ def re_find_buildingCode(df,count_all,found_type):
         count_filtered = df_filtered.rdd.map(lambda x: (1,x[1])).reduceByKey(lambda x,y: x + y).collect()[0][1]
         res = float(count_filtered/count_all)
         if (res >= 0.85): 
-            found_type = found_type + "buildingCode"
+            found_type = found_type + ["building_classification"]
         return res, found_type
     else:
         return 0, found_type
@@ -93,7 +94,7 @@ def re_find_phoneNum(df,count_all,found_type):
         count_filtered = df_filtered.rdd.map(lambda x: (1,x[1])).reduceByKey(lambda x,y: x + y).collect()[0][1]
         res = float(count_filtered/count_all)
         if (res >= 0.85): 
-            found_type = found_type + "phoneNum"
+            found_type = found_type + ["phone_number"]
         return res, found_type
     else:
         return 0, found_type
@@ -106,7 +107,7 @@ def re_find_lat_lon(df,count_all,found_type):
         count_filtered = df_filtered.rdd.map(lambda x: (1,x[1])).reduceByKey(lambda x,y: x + y).collect()[0][1]
         res = float(count_filtered/count_all)
         if (res >= 0.85): 
-            found_type = found_type + "lat_lon"
+            found_type = found_type + ["lat_lon_cord"]
         return res, found_type
     else:
         return 0, found_type
@@ -119,7 +120,7 @@ def re_find_street_address(df,count_all,found_type):
         count_filtered = df_filtered.rdd.map(lambda x: (1,x[1])).reduceByKey(lambda x,y: x + y).collect()[0][1]
         res = float(count_filtered/count_all)
         if (res >= 0.5): 
-            found_type = found_type + "street/address"
+            found_type = found_type + ["address", "street"]
         return res, found_type
     else:
         return 0, found_type
@@ -132,10 +133,11 @@ def re_find_school(df,count_all,found_type):
         count_filtered = df_filtered.rdd.map(lambda x: (1,x[1])).reduceByKey(lambda x,y: x + y).collect()[0][1]
         res = float(count_filtered/count_all)
         if (res >= 0.5): 
-            found_type = found_type + "school name"
+            found_type = found_type + ["school_name"]
         return res, found_type
     else:
         return 0, found_type
+
 
 # --- Function Definitions End ------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -150,7 +152,7 @@ if __name__ == "__main__":
     sc = SparkContext()
     spark = SparkSession \
         .builder \
-        .appName("project_task1") \
+        .appName("project_task2") \
         .config("spark.some.config.option", "some-value") \
         .getOrCreate()
     sqlContext = SQLContext(sparkContext=spark.sparkContext, sparkSession=spark)
@@ -160,35 +162,43 @@ if __name__ == "__main__":
     this_user = env_var['USER']
 
     # Input & output directories
-    inputDirectory = "/user/hm74/NYCOpenData/"#sys.argv[1]
-    outputDirectory = "/user/" + this_user + "/project/task1/"#sys.argv[2]
+    inputDirectory = "/user/hm74/NYCColumns/"#sys.argv[1]
+    outputDirectory = "/user/" + this_user + "/project/task2/"#sys.argv[2]
 
     # Output JSON Semantic Schema
+    jsonSchema = {
+        "column_name": "",
+        "semantic_type": []
+    }
+
+    # Inner semantic schema 
     semanticSchema = {
         "semantic_type": "",
-        "count": 0
+        "label": "",
+        "count": 0 
     }
 
     # Importing cluster3 format it and put it into a list
-    raw_data = sc.textFile("cluster3.txt")
-    raw_list = raw_data.flatMap(lambda x: x.split(",")).collect()
-    raw_list = [re.sub("\[|\]|\'|\'|" "", "", item)for item in raw_list]
-    raw_list = [re.sub(" " "", "", item)for item in raw_list]
-    
+    raw_data = sc.textFile("/user/aj2885/Project_Resource/cluster3_labels.tsv")
+    raw_list = raw_data.map(lambda x: x.split("\t")).collect()
+
     # Iteration over dataframes begins bu using dataframe file names
     processCount = 1
 
     # Create schema for raw data before reading into df 
     customSchema = StructType([
-               StructField("val", StringType(), True),
-               StructField("count", IntegerType(), True)])
+                StructField("val", StringType(), True),
+                StructField("count", IntegerType(), True)])
 
-    #Testing first 50 files
-    for filename in raw_list[0:50]:
+#Testing first 50 files
+    for filerow in raw_list[0:1]:
+        filename = filerow[0]
+        labels = literal_eval(filerow[1])
         print("Processing Dataset =========== : ", str(processCount) + ' - ' +filename)
         # Read file to dataset and apply all regex functions
-        found_type = ""
+        found_type = []
         fileinfo = []
+        regex_res = []
         df = sqlContext.read.format("csv").option("header","false").option("inferSchema", "true").option("delimiter", "\t").schema(customSchema).load(inputDirectory + filename)
         df_stats = mean_stdv(df)
         mean = df_stats[0]['mean']
@@ -212,66 +222,66 @@ if __name__ == "__main__":
     length = len(df.select('coln').take(1)[0][0])
     df = df.select([df.coln[i] for i in range(length)])
     df = df.select(col('coln[0]').alias('filename'),col('coln[1]').alias('mean'),col('coln[2]').alias('stdv'),
-                   col('coln[3]').alias('count_all'),col('coln[4]').alias('precentage_website'),col('coln[5]').alias('precentage_zip'),
-                   col('coln[6]').alias('percentage_buildingCode'),col('coln[7]').alias('percentage_phoneNum'),col('coln[8]').alias('percentage_lat_lon'),
-                   col('coln[9]').alias('percentage_add_st'),col('coln[10]').alias('percentage_add_school'),col('coln[11]').alias('types'),
-                   )
+                    col('coln[3]').alias('count_all'),col('coln[4]').alias('precentage_website'),col('coln[5]').alias('precentage_zip'),
+                    col('coln[6]').alias('percentage_buildingCode'),col('coln[7]').alias('percentage_phoneNum'),col('coln[8]').alias('percentage_lat_lon'),
+                    col('coln[9]').alias('percentage_add_st'),col('coln[10]').alias('percentage_add_school'),col('coln[11]').alias('types'),
+                    )
 
     types_found_count = df.where(col('types') > " ").count()
     print(types_found_count)
 
 
 
-        # # Reading the task1 JSON
-        # outJSON = sc.textFile(outputDirectory + filename + '.json')
-        # outJSON = json.load(outJSON.collect()[0])
-        # # Spark SQL view
-        # df.createOrReplaceTempView("df")
-        # # Datatypes dictionary from InferSchema
-        # df_dtypes = {i:j for i,j in df.dtypes}
-        # # Copy of semantic types schema
-        # sem_types = deepcopy(semanticSchema)
-        # # ---------------------------------------------------------------------
-        # # --- ENTER FUNCTION CALLS FROM HERE ----------------------------------
+    # # Reading the task1 JSON
+    # outJSON = sc.textFile(outputDirectory + filename + '.json')
+    # outJSON = json.load(outJSON.collect()[0])
+    # # Spark SQL view
+    # df.createOrReplaceTempView("df")
+    # # Datatypes dictionary from InferSchema
+    # df_dtypes = {i:j for i,j in df.dtypes}
+    # # Copy of semantic types schema
+    # sem_types = deepcopy(semanticSchema)
+    # # ---------------------------------------------------------------------
+    # # --- ENTER FUNCTION CALLS FROM HERE ----------------------------------
 
-        # # Finding "colomns" attribute for each column
-        # print("Number of Columns ============ : ", len(df.columns))
-        # columnCount = 1
-        # for coln in df.columns:
-        #     print("Processing Column ============ : ", str(columnCount) + ' - ' + coln)
-        #     col_type = df_dtypes[coln]
-        #     # Handle integers decimal(10,0)
-        #     if (col_type in ['int', 'bigint', 'tinyint', 'smallint']) or (('decimal' in col_type) and col_type[-2]=='0'):
-        #         #print('1 '+col_type)
-        #         pass
-        #     # Handle real numbers
-        #     elif (col_type in ['float', 'double']) or (('decimal' in col_type) and col_type[-2]!='0'):
-        #         #print('2 '+col_type)
-        #         pass
-        #     # Handle timestamps
-        #     elif col_type in ['timestamp', 'date', 'time', 'datetime']:
-        #         #print('3 '+col_type)
-        #         pass
-        #     # Handle strings 
-        #     elif col_type in ['string', 'boolean']:
-        #         #print('4 '+col_type)
-        #         pass
-        #     else:
-        #         #print('NOT FOUND' +col_type)
-        #         pass
+    # # Finding "colomns" attribute for each column
+    # print("Number of Columns ============ : ", len(df.columns))
+    # columnCount = 1
+    # for coln in df.columns:
+    #     print("Processing Column ============ : ", str(columnCount) + ' - ' + coln)
+    #     col_type = df_dtypes[coln]
+    #     # Handle integers decimal(10,0)
+    #     if (col_type in ['int', 'bigint', 'tinyint', 'smallint']) or (('decimal' in col_type) and col_type[-2]=='0'):
+    #         #print('1 '+col_type)
+    #         pass
+    #     # Handle real numbers
+    #     elif (col_type in ['float', 'double']) or (('decimal' in col_type) and col_type[-2]!='0'):
+    #         #print('2 '+col_type)
+    #         pass
+    #     # Handle timestamps
+    #     elif col_type in ['timestamp', 'date', 'time', 'datetime']:
+    #         #print('3 '+col_type)
+    #         pass
+    #     # Handle strings 
+    #     elif col_type in ['string', 'boolean']:
+    #         #print('4 '+col_type)
+    #         pass
+    #     else:
+    #         #print('NOT FOUND' +col_type)
+    #         pass
 
-        # columnCount+=1
-        
-        # # USE ME to append all semantic information to the JSON
-        #     for i in range(len(outJSON["columns"])):
-        #         if outJSON["columns"][i]["column_name"]== coln:
-        #             outJSON["columns"][i]["semantic_types"].append(sem_types)
+    # columnCount+=1
+    
+    # # USE ME to append all semantic information to the JSON
+    #     for i in range(len(outJSON["columns"])):
+    #         if outJSON["columns"][i]["column_name"]== coln:
+    #             outJSON["columns"][i]["semantic_types"].append(sem_types)
 
-        # # --- FUNCTION CALLS END HERE -----------------------------------------
-        # # ---------------------------------------------------------------------
-        
-        # USE ME to export the JSON for current dataset
-        print("Saving Dataset =============== : ", str(processCount) + ' - ' +filename)
-        processCount += 1
-        outJSON = sc.parallelize([json.dumps(outJSON)])
-        outJSON.saveAsTextFile(outputDirectory + filename + '.json')
+    # # --- FUNCTION CALLS END HERE -----------------------------------------
+    # # ---------------------------------------------------------------------
+    
+    # USE ME to export the JSON for current dataset
+    print("Saving Dataset =============== : ", str(processCount) + ' - ' +filename)
+    processCount += 1
+    #outJSON = sc.parallelize([json.dumps(outJSON)])
+    #outJSON.saveAsTextFile(outputDirectory + filename + '.json')
