@@ -16,7 +16,7 @@ from copy import deepcopy
 from datetime import datetime
 from pyspark import SparkContext
 from pyspark.sql import SQLContext, SparkSession, Row
-from pyspark.sql.functions import udf, unix_timestamp, col
+from pyspark.sql.functions import udf, unix_timestamp, col ,length
 from pyspark.sql.types import StructType, StructField, IntegerType, DoubleType, StringType, FloatType, DateType, TimestampType
 from pyspark.sql.functions import mean as _mean, stddev as _stddev, col
 from pyspark.ml.feature import MinMaxScaler
@@ -56,9 +56,9 @@ def re_find_website(df,count_all,found_type):
         res = float(count_filtered/count_all)
         if (res >= 0.85): 
             found_type = found_type + ["website"]
-        return res, found_type
+        return res, found_type, count_filtered 
     else:
-        return 0, found_type
+        return 0, found_type, 0
 
 # Regex function to check zip type
 def re_find_zipCode(df,count_all,found_type):
@@ -69,9 +69,9 @@ def re_find_zipCode(df,count_all,found_type):
         res = float(count_filtered/count_all)
         if (res >= 0.85): 
             found_type = found_type + ["zip_code"]
-        return res, found_type
+        return res, found_type, count_filtered 
     else:
-        return 0, found_type
+        return 0, found_type, 0
 
 # Regex function to check buildingCode type
 def re_find_buildingCode(df,count_all,found_type):
@@ -82,9 +82,9 @@ def re_find_buildingCode(df,count_all,found_type):
         res = float(count_filtered/count_all)
         if (res >= 0.85): 
             found_type = found_type + ["building_classification"]
-        return res, found_type
+        return res, found_type, count_filtered 
     else:
-        return 0, found_type
+        return 0, found_type, 0 
 
 # Regex function to check phone number type
 def re_find_phoneNum(df,count_all,found_type):
@@ -95,9 +95,9 @@ def re_find_phoneNum(df,count_all,found_type):
         res = float(count_filtered/count_all)
         if (res >= 0.85): 
             found_type = found_type + ["phone_number"]
-        return res, found_type
+        return res, found_type, count_filtered 
     else:
-        return 0, found_type
+        return 0, found_type, 0
 
 # Regex function to check lat_lon type
 def re_find_lat_lon(df,count_all,found_type):
@@ -108,9 +108,9 @@ def re_find_lat_lon(df,count_all,found_type):
         res = float(count_filtered/count_all)
         if (res >= 0.85): 
             found_type = found_type + ["lat_lon_cord"]
-        return res, found_type
+        return res, found_type, count_filtered 
     else:
-        return 0, found_type
+        return 0, found_type, 0
 
 # Regex function to check street_addrees type
 def re_find_street_address(df,count_all,col_length,found_type):
@@ -124,9 +124,9 @@ def re_find_street_address(df,count_all,col_length,found_type):
                 found_type = found_type + ["address"]
             elif (col_length < 15):
                 found_type = found_type + ["street"]
-        return res, found_type
+        return res, found_type, count_filtered 
     else:
-        return 0, found_type
+        return 0, found_type, 0
 
 # Regex function to check school name type
 def re_find_school(df,count_all,found_type):
@@ -137,9 +137,9 @@ def re_find_school(df,count_all,found_type):
         res = float(count_filtered/count_all)
         if (res >= 0.5): 
             found_type = found_type + ["school_name"]
-        return res, found_type
+        return res, found_type, count_filtered 
     else:
-        return 0, found_type
+        return 0, found_type, 0
 
 # Regex function for checking house number 
 def re_find_houseNo(df,count_all,found_type):
@@ -150,9 +150,9 @@ def re_find_houseNo(df,count_all,found_type):
         res = float(count_filtered/count_all)
         if (res >= 0.85): 
             found_type = found_type + ["house number"]
-        return res, found_type
+        return res, found_type, count_filtered 
     else:
-        return 0, found_type
+        return 0, found_type, 0
 
 # Regex function for checking school subject
 def re_find_school_subject(df,count_all,found_type):
@@ -167,9 +167,9 @@ def re_find_school_subject(df,count_all,found_type):
         print(res)
         if (res >= 0.5): 
             found_type = found_type + ["school subject"]
-        return res, found_type
+        return res, found_type, count_filtered 
     else:
-        return 0, found_type
+        return 0, found_type, 0
 
 # Regex function for checking school level 
 def re_find_schoolLevel(df,count_all,found_type):
@@ -180,9 +180,9 @@ def re_find_schoolLevel(df,count_all,found_type):
         res = float(count_filtered/count_all)
         if (res >= 0.85): 
             found_type = found_type + ["school level"]
-        return res, found_type
+        return res, found_type, count_filtered
     else:
-        return 0, found_type
+        return 0, found_type, 0
 
 # --- Functions FOR NLP Starts HERE -------------------------------------------
 def nlp_find_person(df,count_all,found_type):
@@ -192,39 +192,39 @@ def nlp_find_person(df,count_all,found_type):
     #if found:
 #         found_type = found_type + ["person"]
     #if not found:
-    return 0, found_type
+    return 0, found_type, 0
 
 def nlp_find_business_name(df,count_all,found_type):
     #Your Code HERE:
-    return 0, found_type
+    return 0, found_type, 0
 
 def nlp_find_vehicle_type(df,count_all,found_type):
     #Your Code HERE:
-    return 0, found_type
+    return 0, found_type, 0
 
 def nlp_find_color(df,count_all,found_type):
     #Your Code HERE:
-    return 0, found_type
+    return 0, found_type, 0
 
 def nlp_find_car_make(df,count_all,found_type):
     #Your Code HERE:
-    return 0, found_type
+    return 0, found_type, 0
 
 def nlp_find_car_model(df,count_all,found_type):
     #Your Code HERE:
-    return 0, found_type
+    return 0, found_type, 0
 
 def nlp_find_neighborhood(df,count_all,found_type):
     #Your Code HERE:
-    return 0, found_type
+    return 0, found_type, 0
 
 def nlp_find_borough(df,count_all,found_type):
     #Your Code HERE:
-    return 0, found_type
+    return 0, found_type, 0
 
 def nlp_find_city(df,count_all,found_type):
     #Your Code HERE:
-    return 0, found_type
+    return 0, found_type, 0
 
 # --- Function FOR NLP End ------------------------------------------------
 
@@ -236,31 +236,31 @@ def list_find_school_subject(df,count_all,found_type):
     #if found:
     #found_type = found_type + ["school subject"]
     #if not found:
-    return 0, found_type
+    return 0, found_type, 0
 
 def list_find_business_name(df,count_all,found_type):
     #Your Code HERE: 
-    return 0, found_type
+    return 0, found_type, 0
 
 def list_find_neighborhood(df,count_all,found_type):
     #Your Code HERE: 
-    return 0, found_type
+    return 0, found_type, 0
 
 def list_find_area_of_study(df,count_all,found_type):
     #Your Code HERE: 
-    return 0, found_type
+    return 0, found_type, 0
 
 def list_find_agency(df,count_all,found_type):
     #Your Code HERE: 
-    return 0, found_type
+    return 0, found_type, 0
 
 def list_find_location_type(df,count_all,found_type):
     #Your Code HERE: 
-    return 0, found_type
+    return 0, found_type, 0
 
 def list_find_parks_playgrounds(df,count_all,found_type):
     #Your Code HERE: 
-    return 0, found_type
+    return 0, found_type, 0
 
 # --- Function Definitions End ------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -291,7 +291,8 @@ if __name__ == "__main__":
     # Output JSON Semantic Schema
     jsonSchema = {
         "column_name": "",
-        "semantic_type": []
+        "semantic_type": [],
+        "count": 0
     }
 
     # Inner semantic schema 
@@ -314,7 +315,7 @@ if __name__ == "__main__":
                 StructField("count", IntegerType(), True)])
 
 #Testing first 50 files
-    for filerow in raw_list[0:1]:
+    for filerow in raw_list[0:10]:
         filename = filerow[0]
         labels = literal_eval(filerow[1])
         print("Processing Dataset =========== : ", str(processCount) + ' - ' +filename)
@@ -332,17 +333,19 @@ if __name__ == "__main__":
         df_length = df.select(_mean(length(col("val"))).alias('avg_length'))
         col_length= df_length.collect()[0][0]
 
-        percentage_website, found_type = re_find_website(df,count_all,found_type)
-        percentage_zip, found_type= re_find_zipCode(df,count_all,found_type)
-        percentage_buildingCode, found_type = re_find_buildingCode(df,count_all,found_type)
-        percentage_phoneNum, found_type = re_find_phoneNum(df,count_all,found_type)
-        percentage_lat_lon, found_type = re_find_lat_lon(df,count_all,found_type)
-        percentage_add_st, found_type = re_find_street_address(df,count_all,col_length,found_type)
-        percentage_school_name, found_type = re_find_school(df,count_all,found_type)
-        percentage_house_no, found_type = re_find_houseNo(df,count_all,found_type)
-        percentage_school_lvl, found_type = re_find_schoolLevel(df,count_all,found_type)
-        percentage_school_subject, found_type = re_find_school_subject(df,count_all,found_type)
-
+        percentage_website, found_type, type_count_web = re_find_website(df,count_all,found_type)
+        percentage_zip, found_type, type_count_zip = re_find_zipCode(df,count_all,found_type)
+        percentage_buildingCode, found_type,type_count_building = re_find_buildingCode(df,count_all,found_type)
+        percentage_phoneNum, found_type, type_count_phone = re_find_phoneNum(df,count_all,found_type)
+        percentage_lat_lon, found_type, type_count_lat_lon = re_find_lat_lon(df,count_all,found_type)
+        percentage_add_st, found_type, type_count_add_st = re_find_street_address(df,count_all,col_length,found_type)
+        percentage_school_name, found_type, type_count_school_name= re_find_school(df,count_all,found_type)
+        percentage_house_no, found_type ,type_count_house_no= re_find_houseNo(df,count_all,found_type)
+        percentage_school_lvl, found_type, type_count_school_lvl= re_find_schoolLevel(df,count_all,found_type)
+        percentage_school_subject, found_type, type_count_school_subject= re_find_school_subject(df,count_all,found_type)
+        
+        type_count = type_count_web + type_count_zip + type_count_building + type_count_phone + type_count_lat_lon + type_count_add_st + type_count_school_name +type_count_house_no +type_count_school_lvl + type_count_school_subject
+        
         #give a default value for all other precentages 
         percentage_person = 0
         percentage_business_name = 0
@@ -359,29 +362,41 @@ if __name__ == "__main__":
         percentage_parks_playgrounds = 0
 
         #STEP TWO: NLP LABEL AND LIST CHECK
-        if not found_type:
-            #ANKUSH PART: NLP CHECK TYPES
-            percentage_person, found_type = nlp_find_person(df,count_all,found_type)
-            percentage_business_name, found_type = nlp_find_business_name(df,count_all,found_type)
-            percentage_vehicle_type, found_type = nlp_find_vehicle_type(df,count_all,found_type)
-            percentage_color, found_type = nlp_find_color(df,count_all,found_type)
-            percentage_car_make, found_type = nlp_find_car_make(df,count_all,found_type)
-            percentage_car_model, found_type = nlp_find_car_model(df,count_all,found_type)
-            percentage_neighborhood, found_type = nlp_find_neighborhood(df,count_all,found_type)
-            percentage_borough, found_type = nlp_find_borough(df,count_all,found_type)
-            percentage_city, found_type = nlp_find_city(df,count_all,found_type)
+        # if not found_type:
+        #     #ANKUSH PART: NLP CHECK TYPES
+        #     percentage_person, found_type, type_count_person = nlp_find_person(df,count_all,found_type)
+        #     percentage_business_name, found_type, type_count_business = nlp_find_business_name(df,count_all,found_type)
+        #     percentage_vehicle_type, found_type, type_count_vehicle_type = nlp_find_vehicle_type(df,count_all,found_type)
+        #     percentage_color, found_type, type_count_color = nlp_find_color(df,count_all,found_type)
+        #     percentage_car_make, found_type, type_count_car_make = nlp_find_car_make(df,count_all,found_type)
+        #     percentage_car_model, found_type, type_count_car_model = nlp_find_car_model(df,count_all,found_type)
+        #     percentage_neighborhood, found_type, type_count_neighborhood = nlp_find_neighborhood(df,count_all,found_type)
+        #     percentage_borough, found_type, type_count_borough = nlp_find_borough(df,count_all,found_type)
+        #     percentage_city, found_type, type_count_city = nlp_find_city(df,count_all,found_type)
         
-            #TED PART: LIST or SIMILARITY CHECK TYPEs
-            percentage_school_subject, found_type= list_find_school_subject(df,count_all,found_type)
-            percentage_business_name, found_type = list_find_business_name(df,count_all,found_type)
-            percentage_neighborhood, found_type = list_find_neighborhood(df,count_all,found_type)
-            percentage_area_of_study, found_type = list_find_area_of_study(df,count_all,found_type)
-            percentage_agency, found_type = list_find_agency(df,count_all,found_type)
-            percentage_location, found_type = list_find_location_type(df,count_all,found_type)
-            percentage_parks_playgrounds, found_type = list_find_parks_playgrounds(df,count_all,found_type
-
-        fileinfo.extend([filename,mean,std,count_all,col_length, percentage_website, percentage_zip,percentage_buildingCode,percentage_phoneNum,percentage_lat_lon,percentage_add_st,percentage_school_name,percentage_house_no,percentage_school_lvl,percentage_person,percentage_school_subject,percentage_vehicle_type, percentage_color,percentage_car_make,percentage_car_model,percentage_neighborhood,percentage_borough,percentage_city,percentage_business_name,percentage_area_of_study,percentage_location,percentage_parks_playgrounds,found_type])
+        #     #TED PART: LIST or SIMILARITY CHECK TYPEs
+        #     percentage_school_subject, found_type, type_count_school_subject= list_find_school_subject(df,count_all,found_type)
+        #     percentage_business_name, found_type, type_count_business= list_find_business_name(df,count_all,found_type)
+        #     percentage_neighborhood, found_type, type_count_neighborhood= list_find_neighborhood(df,count_all,found_type)
+        #     percentage_area_of_study, found_type, type_count_area_of_study = list_find_area_of_study(df,count_all,found_type)
+        #     percentage_agency, found_type, type_count_agency= list_find_agency(df,count_all,found_type)
+        #     percentage_location, found_type, type_count_location= list_find_location_type(df,count_all,found_type)
+        #     percentage_parks_playgrounds, type_count_location_parks_playgrounds = list_find_parks_playgrounds(df,count_all,found_type
+        # !!! NOTE: Please remeber to add type_count_XXX back to type_count in LINE 347
+        fileinfo.extend([filename,mean,std,count_all,col_length, percentage_website, percentage_zip,percentage_buildingCode,percentage_phoneNum,percentage_lat_lon,percentage_add_st,percentage_school_name,percentage_house_no,percentage_school_lvl,percentage_person,percentage_school_subject,percentage_vehicle_type, percentage_color,percentage_car_make,percentage_car_model,percentage_neighborhood,percentage_borough,percentage_city,percentage_business_name,percentage_area_of_study,percentage_location,percentage_parks_playgrounds,found_type, type_count])
         regex_res.append(fileinfo)
+        print(regex_res)
+        # USE ME to export the JSON for current dataset
+        print("Saving Dataset =============== : ", str(processCount) + ' - ' +filename)
+        processCount += 1
+        outJSON = deepcopy(jsonSchema)
+        outJSON["column_name"] = filename
+        outJSON["semantic_type"] = found_type[0]
+        outJSON["semantic_type"] = type_count
+        outJSON = sc.parallelize([json.dumps(outJSON)])
+        outJSON.saveAsTextFile(outputDirectory + filename + '/task2.json')
+
+
 
     # Output regex function result 
     rdd = sc.parallelize(regex_res)
@@ -399,64 +414,9 @@ if __name__ == "__main__":
                col('coln[18]').alias('percentage_car_make'),col('coln[19]').alias('percentage_car_model'),
                col('coln[20]').alias('percentage_neighborhood'),col('coln[21]').alias('percentage_borough'),col('coln[22]').alias('percentage_city'),
                col('coln[23]').alias('percentage_business_name'),col('coln[24]').alias('percentage_area_of_study'),col('coln[25]').alias('percentage_location_type'),
-               col('coln[26]').alias('percentage_parks_playgrounds'),col('coln[27]').alias('types')
+               col('coln[26]').alias('percentage_parks_playgrounds'),col('coln[27]').alias('types'), col('coln[28]').alias('types_count')
                )
 
     types_found_count = df.where(col('types') > " ").count()
     print(types_found_count)
     df.write.csv('regex_res.csv')
-
-
-    # # Reading the task1 JSON
-    # outJSON = sc.textFile(outputDirectory + filename + '.json')
-    # outJSON = json.load(outJSON.collect()[0])
-    # # Spark SQL view
-    # df.createOrReplaceTempView("df")
-    # # Datatypes dictionary from InferSchema
-    # df_dtypes = {i:j for i,j in df.dtypes}
-    # # Copy of semantic types schema
-    # sem_types = deepcopy(semanticSchema)
-    # # ---------------------------------------------------------------------
-    # # --- ENTER FUNCTION CALLS FROM HERE ----------------------------------
-
-    # # Finding "colomns" attribute for each column
-    # print("Number of Columns ============ : ", len(df.columns))
-    # columnCount = 1
-    # for coln in df.columns:
-    #     print("Processing Column ============ : ", str(columnCount) + ' - ' + coln)
-    #     col_type = df_dtypes[coln]
-    #     # Handle integers decimal(10,0)
-    #     if (col_type in ['int', 'bigint', 'tinyint', 'smallint']) or (('decimal' in col_type) and col_type[-2]=='0'):
-    #         #print('1 '+col_type)
-    #         pass
-    #     # Handle real numbers
-    #     elif (col_type in ['float', 'double']) or (('decimal' in col_type) and col_type[-2]!='0'):
-    #         #print('2 '+col_type)
-    #         pass
-    #     # Handle timestamps
-    #     elif col_type in ['timestamp', 'date', 'time', 'datetime']:
-    #         #print('3 '+col_type)
-    #         pass
-    #     # Handle strings 
-    #     elif col_type in ['string', 'boolean']:
-    #         #print('4 '+col_type)
-    #         pass
-    #     else:
-    #         #print('NOT FOUND' +col_type)
-    #         pass
-
-    # columnCount+=1
-    
-    # # USE ME to append all semantic information to the JSON
-    #     for i in range(len(outJSON["columns"])):
-    #         if outJSON["columns"][i]["column_name"]== coln:
-    #             outJSON["columns"][i]["semantic_types"].append(sem_types)
-
-    # # --- FUNCTION CALLS END HERE -----------------------------------------
-    # # ---------------------------------------------------------------------
-    
-    # USE ME to export the JSON for current dataset
-    print("Saving Dataset =============== : ", str(processCount) + ' - ' +filename)
-    processCount += 1
-    #outJSON = sc.parallelize([json.dumps(outJSON)])
-    #outJSON.saveAsTextFile(outputDirectory + filename + '.json')
