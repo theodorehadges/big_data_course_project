@@ -314,7 +314,7 @@ if __name__ == "__main__":
                 StructField("val", StringType(), True),
                 StructField("count", IntegerType(), True)])
 
-#Testing first 50 files
+#Testing first 10 files
     for filerow in raw_list[0:10]:
         filename = filerow[0]
         labels = literal_eval(filerow[1])
@@ -391,8 +391,8 @@ if __name__ == "__main__":
         processCount += 1
         outJSON = deepcopy(jsonSchema)
         outJSON["column_name"] = filename
-        outJSON["semantic_type"] = found_type[0]
-        outJSON["semantic_type"] = type_count
+        outJSON["semantic_type"] = found_type
+        outJSON["count"] = type_count
         outJSON = sc.parallelize([json.dumps(outJSON)])
         outJSON.saveAsTextFile(outputDirectory + filename + '/task2.json')
 
