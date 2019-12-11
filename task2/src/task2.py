@@ -7,6 +7,12 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+# In[1]:
+
+
+#!/usr/bin/env python
+# coding: utf-8
+
 # --- NOTES -------------------------------------------------------------------
 # 1. Update the datasets, dataList
 # -----------------------------------------------------------------------------
@@ -29,6 +35,8 @@ from pyspark.ml.feature import MinMaxScaler
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml import Pipeline 
 from collections import Counter
+import pyspark.sql.functions as f
+
 #import spacy
 #from spacy import displacy
 #import en_core_web_sm
@@ -247,8 +255,18 @@ def list_find_school_subject(df,count_all,found_type):
         return 0, found_type, 0
 
 def list_find_business_name(df,count_all,found_type):
-    #Your Code HERE: 
-    return 0, found_type, 0
+    df_filtered = df.filter(df["val"].isin(biz_keywords))
+    df_filtered.show()
+    if (df_filtered.count() is not 0):
+        count_filtered = df_filtered.rdd.map(lambda x: (1,x[1])).reduceByKey(lambda x,y: x + y).collect()[0][1]
+        res = float(count_filtered/count_all)
+        print(res)
+        if (res >= 0.1): 
+            found_type = found_type + ["business"]
+        return res, found_type, count_filtered 
+    else:
+        return 0, found_type, 0
+
 
 def list_find_neighborhood(df,count_all,found_type):
     df_filtered = df.filter(df["val"].isin(nh_keywords))
@@ -319,6 +337,19 @@ def import_keyword_list(inputDir):
     klist = [re.sub(" " "", "", item)for item in klist]
     return(klist)
 
+def read_regex_file(inputFile):
+    with open(inputFile) as f:
+        return(f.read())
+    
+def get_regex_from_list(lst):
+    regex = ""
+    for word in lst:
+        regex += "\\s"
+        regex += word
+        regex += "|"
+    return(regex)
+
+
 
 # --- Function Definitions End ------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -330,7 +361,7 @@ def import_keyword_list(inputDir):
 if __name__ == "__main__":
     # Setting spark context and 
     sc = SparkContext()
-    spark = SparkSession         .builder         .appName("project_task2")         .config("spark.some.config.option", "some-value")         .getOrCreate()
+    spark = SparkSession             .builder             .appName("project_task2")             .config("spark.some.config.option", "some-value")             .getOrCreate()
     sqlContext = SQLContext(sparkContext=spark.sparkContext, sparkSession=spark)
 
 
@@ -343,6 +374,7 @@ if __name__ == "__main__":
     outputDirectory = "/user/" + this_user + "/project/task2/"#sys.argv[2]
     #inputDirectory = "/home/ted/school/big_data/project/big_data_course_project/task2/raw_data/"
     #inputFileClusters = "/home/ted/school/big_data/project/big_data_course_project/task2/resources/filename_clusters.json"
+    
     input_pp_keywords = "park_playground_keywords"
     input_aos_keywords = "area_of_study_keywords"
     input_ca_keywords = "city_agency_keywords"
@@ -350,6 +382,8 @@ if __name__ == "__main__":
     input_sn_keywords = "school_name_keywords"
     input_lt_keywords = "location_type_keywords"
     input_nh_keywords = "neighborhood_keywords"
+    input_biz_keywords = "business_keywords"
+    input_biz_keywords = "business_keywords"
     
     pp_keywords = import_keyword_list(input_pp_keywords) # parks & playgrounds
     aos_keywords = import_keyword_list(input_aos_keywords) # area of study
@@ -358,7 +392,16 @@ if __name__ == "__main__":
     sn_keywords = import_keyword_list(input_sn_keywords) # school name
     lt_keywords = import_keyword_list(input_lt_keywords) # location type
     nh_keywords = import_keyword_list(input_nh_keywords) # neighborhood
+    biz_keywords = import_keyword_list(input_biz_keywords) # business name 
     
+    #pp_regex = get_regex_from_list(pp_keywords)
+    #aos_regex = get_regex_from_list(aos_keywords)
+    #ca_regex = get_regex_from_list(ca_keywords)
+    #ss_regex = get_regex_from_list(ss_keywords)
+    #sn_regex = get_regex_from_list(sn_keywords)
+    #lt_regex = get_regex_from_list(lt_keywords)
+    #nh_regex = get_regex_from_list(nh_keywords)
+    #biz_regex = get_regex_from_list(biz_keywords)
     
     # Output JSON Semantic Schema
     jsonSchema = {
@@ -389,8 +432,11 @@ if __name__ == "__main__":
 
 
 #Testing first 10 files
-for filerow in raw_list:
+for filerow in raw_list[0:10]:
     filename = filerow[0]
+    #filename = 'qcdj-rwhu.BUSINESS_NAME2.txt.gz'
+    if filename == 'bty7-2jhb.Owner_s_House_Zip_Code.txt.gz':
+        continue
     labels = literal_eval(filerow[1])
     print("Processing Dataset =========== : ", str(processCount) + ' - ' +filename)
     # Read file to dataset and apply all regex functions
@@ -425,12 +471,18 @@ for filerow in raw_list:
     percentage_location, found_type, type_count_location= list_find_location_type(df,count_all,found_type)
     percentage_neighborhood, found_type, type_count_neighborhood= list_find_neighborhood(df,count_all,found_type)
     percentage_parks_playgrounds, found_type, type_count_parks_playgrounds = list_find_parks_playgrounds(df,count_all,found_type)
+    percentage_business_name, found_type, type_count_business= list_find_business_name(df,count_all,found_type)
+
     
-    type_count = type_count_web + type_count_zip + type_count_building + type_count_phone +                 type_count_lat_lon + type_count_add_st + type_count_school_name +                 type_count_house_no + type_count_school_lvl + type_count_school_subject +                 type_count_area_of_study + type_count_neighborhood + type_count_agency +                 type_count_location + type_count_parks_playgrounds
+    type_count = type_count_web + type_count_zip + type_count_building + \
+            type_count_phone + type_count_lat_lon + type_count_add_st + \
+            type_count_school_name + type_count_house_no + type_count_school_lvl + \
+            type_count_school_subject +type_count_area_of_study + type_count_neighborhood + \
+            type_count_agency + type_count_location + type_count_parks_playgrounds + type_count_business
     
     #give a default value for all other precentages 
     percentage_person = 0
-    percentage_business_name = 0
+    #percentage_business_name = 0
     percentage_vehicle_type = 0
     percentage_color = 0
     percentage_car_make = 0
@@ -471,12 +523,12 @@ for filerow in raw_list:
     # USE ME to export the JSON for current dataset
     print("Saving Dataset =============== : ", str(processCount) + ' - ' +filename)
     processCount += 1
-    outJSON = deepcopy(jsonSchema)
-    outJSON["column_name"] = filename
-    outJSON["semantic_type"] = found_type
-    outJSON["count"] = type_count
-    outJSON = sc.parallelize([json.dumps(outJSON)])
-    outJSON.saveAsTextFile(outputDirectory + filename + '/task2.json')
+    #outJSON = deepcopy(jsonSchema)
+    #outJSON["column_name"] = filename
+    #outJSON["semantic_type"] = found_type
+    #outJSON["count"] = type_count
+    #outJSON = sc.parallelize([json.dumps(outJSON)])
+    #outJSON.saveAsTextFile(outputDirectory + filename + '/task2.json')
 
 
 
