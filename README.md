@@ -39,6 +39,7 @@ with a precision of 72.40%.
 - Navigate to `task2/src/`
 - Type the following to run:
   - `spark-submit --conf spark.pyspark.python=$PYSPARK_PYTHON task2.py`
-
+* Use task2_md.py to execute with 'en_web_core_md' NLP model. This model was used to produce the final results.
+** This model is not available on dumbo by default. Use the custom environment from 'env'.
 
 
